@@ -1,0 +1,13 @@
+project_id = "hrbrbxebpxlticknrpuw"
+
+[functions.lbs-chat]
+verify_jwt = false
+
+[functions.scrape-college]
+verify_jwt = false
+
+[functions.sarvam-tts]
+verify_jwt = false
+
+[functions.google-stt]
+verify_jwt = false
