@@ -73,7 +73,7 @@ export const DEFAULT_FAQS: OfflineFAQ[] = [
   },
   {
     question: 'Who is the Principal?',
-    answer: 'The Principal of LBSCEK is Prof. (Dr.) Mohammad Sekoor T (Mechanical Dept). Phone: 04994-250290 | Email: shek117@lbscek.ac.in / principal@lbscek.ac.in. He holds a Ph.D. in Analytical and Numerical Modeling of Compact Heat Exchangers from NIT Surathkal. Profile: https://lbscek.ac.in/principal/',
+    answer: 'The Principal of LBSCEK is Prof. (Dr.) Mohammad Sekoor T. Phone: 04994-250290 | Email: principal@lbscek.ac.in',
     keywords: ['principal', 'director', 'head', 'പ്രിൻസിപ്പൽ', 'principal aaru', 'mohammad sekoor', 'sekoor'],
     patterns: ['who is the principal', 'principal aaru', 'principal name', 'college principal', 'principal phone', 'principal email'],
   },
