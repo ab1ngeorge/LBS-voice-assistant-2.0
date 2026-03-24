@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Bot, User, Volume2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { lbsBotApi } from "@/lib/api";
+import { playStreamingAudio } from "@/lib/streamingAudio";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Message {
@@ -28,27 +29,19 @@ export const ChatMessage = ({ message, speaker }: ChatMessageProps) => {
 
     setIsSpeaking(true);
     try {
-      const response = await lbsBotApi.textToSpeech(message.content, speaker);
+      const response = await lbsBotApi.textToSpeechStream(message.content, speaker);
+      const handle = playStreamingAudio(response);
 
-      if (response.success && response.audioBase64) {
-        // Play base64 audio using data URI (MP3 format from Sarvam)
-        const audioUrl = `data:audio/mpeg;base64,${response.audioBase64}`;
-        const audio = new Audio(audioUrl);
-
-        audio.onended = () => setIsSpeaking(false);
-        audio.onerror = () => {
+      handle.done
+        .then(() => setIsSpeaking(false))
+        .catch(() => {
           setIsSpeaking(false);
           toast({
             title: "Audio Error",
             description: "Failed to play audio",
             variant: "destructive",
           });
-        };
-
-        await audio.play();
-      } else {
-        throw new Error(response.error || "TTS failed");
-      }
+        });
     } catch (error) {
       console.error("TTS error:", error);
       toast({

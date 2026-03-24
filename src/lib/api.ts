@@ -129,6 +129,44 @@ export const lbsBotApi = {
     }
   },
 
+  /**
+   * Streaming TTS — calls edge function and returns the raw Response
+   * with audio/mpeg body that can be piped to MediaSource for real-time playback.
+   */
+  async textToSpeechStream(text: string, speaker: string = 'shubh'): Promise<Response> {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    const truncatedText = text.slice(0, 500);
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/sarvam-tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+      },
+      body: JSON.stringify({
+        text: truncatedText,
+        speaker,
+        pace: 1.0,
+      }),
+    });
+
+    if (!response.ok) {
+      // Try to parse error JSON
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `TTS failed: ${response.status}`);
+      }
+      throw new Error(`TTS failed: ${response.status}`);
+    }
+
+    return response;
+  },
+
+  /** Legacy non-streaming TTS (kept for backward compatibility) */
   async textToSpeech(text: string, speaker: string = 'shubh'): Promise<{ success: boolean; audioBase64?: string; error?: string }> {
     try {
       // Truncate text to 500 chars max for Sarvam API

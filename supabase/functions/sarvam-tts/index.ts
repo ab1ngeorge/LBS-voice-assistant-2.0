@@ -1,5 +1,4 @@
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,9 +46,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Converting text to speech:', text.slice(0, 50) + '...');
+    console.log('Streaming TTS:', text.slice(0, 50) + '...');
 
-    // Use streaming endpoint with bulbul:v3 model
+    // Call Sarvam streaming endpoint
     const response = await fetch('https://api.sarvam.ai/text-to-speech/stream', {
       method: 'POST',
       headers: {
@@ -78,45 +77,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Collect all chunks from streaming response
-    const chunks: Uint8Array[] = [];
-    const reader = response.body?.getReader();
-    
-    if (!reader) {
+    if (!response.body) {
       return new Response(
-        JSON.stringify({ success: false, error: 'No response body' }),
+        JSON.stringify({ success: false, error: 'No response body from Sarvam' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
+    // Stream the MP3 audio directly through to the client
+    // The edge function acts as a secure proxy — API key stays server-side
+    console.log('Proxying MP3 stream to client...');
 
-    // Combine chunks into single buffer
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-    const audioBuffer = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const chunk of chunks) {
-      audioBuffer.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    // Encode to base64 for client
-    const audioBase64 = base64Encode(audioBuffer.buffer);
-
-    console.log('TTS successful, audio generated:', totalLength, 'bytes');
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        audioBase64: audioBase64,
-        format: 'mp3'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(response.body, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'audio/mpeg',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (error) {
     console.error('TTS error:', error);
     return new Response(

@@ -18,6 +18,7 @@ import { createEmptyMemory, rewriteQuery, updateMemory } from "@/lib/conversatio
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { initializeCache, handleOfflineQuery, fetchAndMergeDynamicFAQs } from "@/lib/offlineCache";
 import { tryLocalResponse, cacheAIResponse } from "@/lib/localQueryHandler";
+import { playStreamingAudio } from "@/lib/streamingAudio";
 
 // Check for Web Speech API support
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -133,7 +134,7 @@ const Index = () => {
     });
   }, []);
 
-  // Smart TTS: Sarvam AI for Malayalam/Manglish (premium), Web Speech API for English (free)
+  // Smart TTS: Sarvam AI streaming for Malayalam/Manglish (premium), Web Speech API for English (free)
   const playTTS = useCallback(async (text: string) => {
     setIsSpeaking(true);
     try {
@@ -141,31 +142,30 @@ const Index = () => {
       const useSarvam = lang === 'malayalam' || lang === 'manglish';
 
       if (useSarvam) {
-        // Premium Sarvam AI TTS for Indic languages
-        const speaker = VOICE_GENDER_SPEAKER[voiceGender];
-        const response = await lbsBotApi.textToSpeech(text, speaker);
+        try {
+          // Premium Sarvam AI TTS — streaming playback
+          const speaker = VOICE_GENDER_SPEAKER[voiceGender];
+          const response = await lbsBotApi.textToSpeechStream(text, speaker);
 
-        if (response.success && response.audioBase64) {
-          const audioUrl = `data:audio/mpeg;base64,${response.audioBase64}`;
-          const audio = new Audio(audioUrl);
-          audioRef.current = audio;
+          const handle = playStreamingAudio(response);
+          audioRef.current = handle.audio;
 
-          audio.onended = () => {
-            setIsSpeaking(false);
-            audioRef.current = null;
-          };
+          handle.done
+            .then(() => {
+              setIsSpeaking(false);
+              audioRef.current = null;
+            })
+            .catch(() => {
+              // Streaming playback failed — fall back to Web Speech
+              console.warn('Streaming audio playback failed, falling back to Web Speech');
+              playWithWebSpeech(text);
+            });
 
-          audio.onerror = () => {
-            // Fallback to Web Speech API if Sarvam audio fails
-            console.warn('Sarvam audio playback failed, falling back to Web Speech');
-            playWithWebSpeech(text);
-          };
-
-          await audio.play();
           return;
+        } catch (err) {
+          // Sarvam API call failed — fall through to Web Speech
+          console.warn('Sarvam TTS stream failed:', err, '— using Web Speech fallback');
         }
-        // If Sarvam API call itself failed, fall through to Web Speech
-        console.warn('Sarvam TTS failed:', response.error, '— using Web Speech fallback');
       }
 
       // Free Web Speech API for English or as fallback

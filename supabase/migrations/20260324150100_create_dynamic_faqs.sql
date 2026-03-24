@@ -20,9 +20,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_dynamic_faqs_question
 -- RLS
 ALTER TABLE dynamic_faqs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role full access" ON dynamic_faqs;
 CREATE POLICY "Service role full access" ON dynamic_faqs
   FOR ALL USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "Anon can read dynamic FAQs" ON dynamic_faqs;
 CREATE POLICY "Anon can read dynamic FAQs" ON dynamic_faqs
   FOR SELECT USING (true);
 
@@ -35,6 +37,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_dynamic_faqs_updated_at ON dynamic_faqs;
 CREATE TRIGGER trg_dynamic_faqs_updated_at
   BEFORE UPDATE ON dynamic_faqs
   FOR EACH ROW
@@ -42,20 +45,8 @@ CREATE TRIGGER trg_dynamic_faqs_updated_at
 
 -- ============================================
 -- Weekly cron job to auto-promote FAQs
+-- NOTE: Set up via Supabase Dashboard > Database > Cron Jobs
+-- Schedule: '0 22 * * 0' (Every Sunday 22:00 UTC / 3:30 AM IST Monday)
+-- URL: {SUPABASE_URL}/functions/v1/promote-faqs
 -- ============================================
--- Requires pg_cron and pg_net (already enabled by sync cron migration)
 
-SELECT cron.schedule(
-  'promote-faqs-weekly',
-  '0 22 * * 0',  -- Every Sunday at 22:00 UTC (3:30 AM IST Monday)
-  $$
-  SELECT net.http_post(
-    url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'supabase_url') || '/functions/v1/promote-faqs',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
-    ),
-    body := '{}'::jsonb
-  );
-  $$
-);

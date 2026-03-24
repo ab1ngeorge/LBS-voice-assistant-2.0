@@ -16,8 +16,7 @@ ALTER TABLE knowledge_base
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_knowledge_embedding
-  ON knowledge_base USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 10);
+  ON knowledge_base USING hnsw (embedding vector_cosine_ops);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_tsv
   ON knowledge_base USING gin (search_tsv);
