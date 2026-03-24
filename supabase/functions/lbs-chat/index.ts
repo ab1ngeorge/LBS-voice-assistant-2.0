@@ -315,6 +315,84 @@ async function generateEmbedding(text: string): Promise<number[] | null> {
 }
 
 /**
+ * Direct section lookup for high-precision queries.
+ * Maps specific query patterns to exact section_keys in the database.
+ * Returns the matched content or null if no direct match.
+ */
+async function directSectionLookup(query: string): Promise<string | null> {
+  const translatedQuery = translateMalayalamQuery(query);
+  const q = (query + ' ' + translatedQuery).toLowerCase();
+
+  // Map query patterns to exact section_keys
+  const sectionKeys: string[] = [];
+
+  // HOD queries — detect "hod" + department name
+  const isHodQuery = /\bhod\b|head of department|head of dept|\bമേധാവി|എച്ച്\s*ഒ\s*ഡി/i.test(q);
+
+  if (isHodQuery) {
+    if (/\bcse\b|computer science/i.test(q)) {
+      sectionKeys.push('cse_hod_contact', 'dept_cse', 'cse_faculty_list_complete');
+    } else if (/\bece\b|electronics.*communication/i.test(q)) {
+      sectionKeys.push('dept_ece', 'ece_faculty_list_complete');
+    } else if (/\beee\b|electrical/i.test(q)) {
+      sectionKeys.push('dept_eee', 'eee_faculty_list_complete');
+    } else if (/\bmech|mechanical/i.test(q)) {
+      sectionKeys.push('dept_me', 'mechanical_faculty_list_complete');
+    } else if (/\bcivil/i.test(q)) {
+      sectionKeys.push('dept_civil', 'civil_faculty_list_complete');
+    } else if (/\bit\b|information technology/i.test(q)) {
+      sectionKeys.push('it_faculty_list_complete');
+    } else if (/\bapplied science|maths|physics|chemistry/i.test(q)) {
+      sectionKeys.push('applied_science_faculty_list_complete');
+    } else {
+      // Generic HOD query — return all departments' HOD/faculty info
+      sectionKeys.push('departments_faculty_detailed', 'cse_hod_contact');
+    }
+  }
+
+  // Department-specific queries (non-HOD)
+  if (!isHodQuery) {
+    if (/\bcse\b|computer science/i.test(q) && /\bfaculty|teacher|professor|staff/i.test(q)) {
+      sectionKeys.push('dept_cse', 'cse_faculty_list_complete');
+    }
+    if (/\bece\b/i.test(q) && /\bfaculty|teacher|professor|staff/i.test(q)) {
+      sectionKeys.push('dept_ece', 'ece_faculty_list_complete');
+    }
+  }
+
+  // Contact queries
+  if (/\bcontact|phone|number|email/i.test(q)) {
+    if (/\bcse\b|computer science/i.test(q)) {
+      sectionKeys.push('cse_hod_contact', 'useful_contacts_summary');
+    }
+    if (/\bprincipal/i.test(q)) {
+      sectionKeys.push('useful_contacts_summary');
+    }
+  }
+
+  if (sectionKeys.length === 0) return null;
+
+  try {
+    console.log(`[DirectLookup] Fetching section_keys: ${sectionKeys.join(', ')}`);
+    const { data, error } = await supabaseClient
+      .from('knowledge_base')
+      .select('content')
+      .in('section_key', sectionKeys);
+
+    if (error || !data || data.length === 0) {
+      console.warn('[DirectLookup] No results:', error?.message);
+      return null;
+    }
+
+    console.log(`[DirectLookup] Found ${data.length} direct matches`);
+    return data.map((row: any) => row.content).join('\n\n');
+  } catch (err) {
+    console.warn('[DirectLookup] Failed:', err);
+    return null;
+  }
+}
+
+/**
  * Perform hybrid search: combines pgvector semantic similarity
  * with PostgreSQL full-text keyword search via the hybrid_search RPC.
  * Falls back to null if the RPC is unavailable.
@@ -489,20 +567,30 @@ function resolveQueryWithMemory(query: string, memory?: { last_intent: string | 
   return resolved;
 }
 
-// Provide English translation hint for non-English queries to help LLM understand correctly
+// Provide translation hints and disambiguation for queries (all languages)
 function getQueryTranslationHint(query: string, language: Language): string {
-  if (language === 'english') return '';
-
   const q = query;
+  const qLower = query.toLowerCase();
   const hints: string[] = [];
+
+  // English HOD queries
+  if (/\bhod\b|head of department|head of dept/i.test(qLower)) {
+    hints.push('The user is asking about HOD (Head of Department)');
+    hints.push('REMEMBER: HOD and Dean are DIFFERENT roles. Use ONLY data labelled "HOD:", NOT "Dean" or "Academic Dean"');
+    if (/\bcse\b|computer science/i.test(qLower)) {
+      hints.push('CSE HOD is Dr. Manoj Kumar G, NOT Dr. Praveen Kumar K (who is Academic Dean)');
+    }
+  }
 
   // Detect HOD-related queries in Malayalam
   if (/എച്ച്\s*ഒ\s*ഡി|മേധാവി|തലവൻ/u.test(q)) {
-    hints.push('The user is asking about HOD (Head of Department)');
-    hints.push('REMEMBER: HOD and Dean are DIFFERENT roles. Use ONLY data labelled "HOD:", NOT "Dean" or "Academic Dean"');
+    if (!hints.some(h => h.includes('HOD'))) {
+      hints.push('The user is asking about HOD (Head of Department)');
+      hints.push('REMEMBER: HOD and Dean are DIFFERENT roles. Use ONLY data labelled "HOD:", NOT "Dean" or "Academic Dean"');
+    }
   }
 
-  // Detect department names
+  // Detect department names (Malayalam)
   if (/സി\s*എസ്|സിഎസ്ഇ|കമ്പ്യൂട്ടർ\s*സയൻസ്/u.test(q)) {
     hints.push('Department: CSE (Computer Science & Engineering)');
     hints.push('CSE HOD is Dr. Manoj Kumar G, NOT Dr. Praveen Kumar K (who is Academic Dean)');
@@ -513,7 +601,7 @@ function getQueryTranslationHint(query: string, language: Language): string {
   if (/സിവിൽ/u.test(q)) hints.push('Department: Civil Engineering');
 
   if (hints.length === 0) return '';
-  return `\n\n## QUERY TRANSLATION HINT (for understanding the Malayalam query):\n${hints.map(h => '- ' + h).join('\n')}`;
+  return `\n\n## QUERY HINT (disambiguation):\n${hints.map(h => '- ' + h).join('\n')}`;
 }
 
 // Smart context filter: only send relevant sections of the knowledge base to avoid token limits
@@ -873,19 +961,31 @@ Deno.serve(async (req) => {
     // Get the user's question
     const userQuery = message || messages?.[messages.length - 1]?.content || '';
 
-    // RAG Strategy: Hybrid search is PRIMARY, keyword filter is FALLBACK
+    // RAG Strategy: Direct lookup → Hybrid search → Keyword filter fallback
     let liveContent = '';
     let ragContext = '';
 
     // Resolve pronouns in query using memory BEFORE knowledge retrieval
     const resolvedQuery = resolveQueryWithMemory(userQuery, memory);
 
-    // Try hybrid search first (semantic + keyword via pgvector + tsvector)
+    // Step 1: Try direct section lookup for high-precision queries (HOD, specific contacts)
+    const directResult = await directSectionLookup(resolvedQuery);
+
+    // Step 2: Try hybrid search (semantic + keyword via pgvector + tsvector)
     const hybridResult = await hybridSearch(resolvedQuery, 5);
 
-    if (hybridResult) {
-      console.log('[RAG] Using hybrid search results');
-      ragContext = `## COLLEGE KNOWLEDGE BASE (PRIMARY SOURCE - USE THIS FIRST):\n${hybridResult}`;
+    if (directResult || hybridResult) {
+      let combinedContext = '';
+      if (directResult) {
+        console.log('[RAG] Using direct section lookup (high-priority)');
+        combinedContext += `### PRECISE MATCH (use this FIRST for the answer):\n${directResult}`;
+      }
+      if (hybridResult) {
+        console.log('[RAG] Using hybrid search results');
+        // If we have direct results, hybrid is supplemental; otherwise it's primary
+        combinedContext += `${directResult ? '\n\n### ADDITIONAL CONTEXT:\n' : ''}${hybridResult}`;
+      }
+      ragContext = `## COLLEGE KNOWLEDGE BASE (PRIMARY SOURCE - USE THIS FIRST):\n${combinedContext}`;
     } else {
       // Fallback: keyword-based section filter on the full knowledge base
       console.log('[RAG] Hybrid search unavailable — falling back to keyword filter');

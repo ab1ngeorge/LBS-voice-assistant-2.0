@@ -545,6 +545,17 @@ const GENERIC_FAQ_QUESTIONS: string[] = [
   'tell me about departments & faculty (detailed)',
   'tell me about academic programs',
   'what facilities does the campus have?',
+  'tell me about laboratory facilities (detailed by department)',
+  'tell me about facilities & infrastructure',
+  'tell me about specific facility details',
+  'tell me about campus facilities: advanced details',
+  'tell me about general information',
+  'tell me about leadership & administration',
+  'tell me about student clubs (iedc & technical)',
+  'tell me about campus landmarks & directions',
+  'tell me about campus navigation: landmarks',
+  'tell me about cultural activities: detailed clubs',
+  'tell me about technical clubs & societies',
 ];
 
 // --- GENERATED FAQs FROM SEED.SQL ---
@@ -572,20 +583,20 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Departments & Faculty (Detailed)',
     answer: '### Computer Science & Engineering (CSE)\n- **HOD:** Dr. Manoj Kumar G (Professor) | Ph: 8547458075\n- **Professors:** Dr. Praveen Kumar K, Dr. Vinodu George, Dr. Jayalekshmi S\n- **Associate Professors:** Dr. Sulphikar A, Dr. Rahul C\n- **Assistant Professors:** Binoy D M Panikar, Safarunisa K M, Rajesh Kumar P M, Reema K V, Nishy Reshmi S, Lijin Das S, Krishnaprasad P K, Dr. Sarith Divakar M, Indu K B, Baby Sunitha V P, Fathimath Sameera M A, Vengayil Nayana Murali, Sajina K., Prathima A, Rasna P, Navami Aravind A, Geetha A V, Arathi S S, Sandra Mercelin\n\n### Information Technology (IT)\n- **HOD:** Dr. Anver S R (Professor)\n- **Professor:** Dr. Smithamol M B\n- **Assistant Professors:** Seena Thomas, Ayshath Sithara, Seetha Das V, Dhanyashree A S, Ramya P M, Sreejai, Nimitha Raj\n\n### Electronics & Communication (ECE)\n- **HOD:** Dr. Mary Reena K E (Professor)\n- **Professors:** Dr. Sheeba K, Dr. Pramod P\n- **Associate Professors:** Santo Mathew, Dr. Arathi T\n- **Assistant Professors:** Dr. Baiju P S, Dr. Anusree L, Dr. Anitha K, Zainaba Abdulrahiman, Vaishnavi T V\n\n### Electrical & Electronics (EEE)\n- **HOD:** Prof. Jayakumar M (Associate Professor)\n- **Professor:** Dr. Rajashree Raghavan\n- **Associate Professors:** Dr. Visalakshi V, Baby Sindhu A V, Dr. Aseem K\n- **Assistant Professors:** Dr. Sheeja V, Dr. Kannan M, Abhilash V Nair, Anish Joseph Jacob, Arun S Mathew, Mujeeb Rahuman, Seena K R\n\n### Mechanical Engineering (ME)\n- **HOD:** Dr. Manoj Kumar C V (Associate Professor)\n- **Associate Professors:** Mahesh P V, Dr. Swaraj Kumar B, Dr. Anil Kumar B C\n- **Assistant Professors:** Jowhar Mubarak, Vinod O M, Sreejith M, Prajina N V, Mukul Joseph, Latheesh Bharathan, Aswanth K, Kamaljith K\n\n### Civil Engineering (CE)\n- **HOD:** Dr. Anjali M S (Associate Professor)\n- **Assistant Professors:** Dr. Arun N R, Merlin R, Sruthi M, Sreevidya V, Jisha K V, Anjali M, Drisya M D, Athira Suresh, Sarga P Surendran\n\n### Applied Science\n- **HOD:** Prof. Vineesh Kumar K V (Mathematics)\n- **Mathematics Faculty:** Ramya M R, Smitha P, Rabiyathul Hadaviyya\n- **Chemistry Faculty:** Fathimath Ruksana A K, Dr. Dhanya Balan A P\n- **Physics Faculty:** Akhil Kumar A, Darshana N P\n- **Economics:** Jasir M H\n- **English:** Rajesh A, Vishnupriya V S\n- **Physical Education:** Prof. Joshua P Y',
-    keywords: ['departments', 'detailed', 'faculty'],
-    patterns: ['departments & faculty (detailed)'],
+    keywords: ['departments', 'detailed', 'faculty', 'hod', 'professor', 'associate professor', 'assistant professor'],
+    patterns: ['departments & faculty (detailed)', 'departments and faculty'],
   },
   {
     question: 'Tell me about Fee Structure (2025-26 Academic Year)',
     answer: '### B.Tech Regular\n- **Merit Seat (Total):** ₹56,870/year\n- **SC/ST/OEC:** ₹1,000/year (Token amount)\n- **Fee Waiver (FW):** ₹18,620/year\n- **High Fee Seat:** ₹88,370/year\n\n### B.Tech Lateral Entry (LET)\n- **Merit Seat:** ₹49,200 + KTU Exam Fees\n- **Fee Waiver:** ₹10,950 + KTU Exam Fees\n\n### M.Tech\n- **Total Fee:** ₹44,880/year (College: ₹37,950 + KTU: ₹6,930)\n\n### Miscellaneous Fees (Included in Total)\n- **PTA Membership:** ₹5,000\n- **Union Fee:** ₹1,200\n- **Placement Fee:** ₹500\n- **Dept Association:** ₹1,000\n- **Sports Fund:** ₹250',
-    keywords: ['structure', 'fee', 'academic', 'year', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['fee structure (2025-26 academic year)', 'fee ethra', 'what is the fee'],
+    keywords: ['structure', 'fee', 'academic', 'year', 'fees', 'amount', 'pay', 'how much'],
+    patterns: ['fee structure (2025-26 academic year)'],
   },
   {
     question: 'Tell me about Transportation (Bus Routes & Fees)',
     answer: '- **Total Buses:** 6 (Melparamb, Kanhangad, Kasaragod, Periya, Pallikara, Nileshwaram)\n- **Bus Fees (Student/Year):**\n  - **Pallikkara:** ₹11,910 (Pickup 8:10 AM)\n  - **Bekal:** ₹11,180 (Pickup 8:15 AM)\n  - **Palakkunnu:** ₹10,530 (Pickup 8:20 AM)\n  - **Uduma:** ₹10,060 (Pickup 8:25 AM)\n  - **Kalanadu:** ₹9,420 (Pickup 8:30 AM)\n  - **Melparamba:** ₹8,960 (Pickup 8:35 AM)\n  - **Chaliyancode:** ₹8,580 (Pickup 8:40 AM)\n  - **Chemnad:** ₹8,500 (Pickup 8:45 AM)\n  - **Kasaragod:** ₹8,400 (Pickup 8:50 AM)\n  - **Vidya Nagar:** ₹5,630 (Pickup 8:55 AM)\n  - **Nalam Mile:** ₹4,530 (Pickup 9:00 AM)\n  - **Cherkala:** ₹3,420 (Pickup 9:05 AM)',
-    keywords: ['bus', 'fees', 'routes', 'transportation', 'fee', 'fees', 'amount', 'pay', 'how much', 'bus', 'transport', 'route'],
-    patterns: ['transportation (bus routes & fees)', 'fee ethra', 'what is the fee', 'bus route', 'bus fee', 'bus list'],
+    keywords: ['bus', 'fees', 'routes', 'transportation', 'transport', 'route'],
+    patterns: ['transportation (bus routes & fees)'],
   },
   {
     question: 'Tell me about Facilities & Infrastructure',
@@ -638,8 +649,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Detailed Bus Fee Structure (Staff & Students)',
     answer: '- **Pallikkara Route:**\n  - Student Fee: ₹11,910/year\n  - Staff Fee: ₹14,810/year\n- **Bekal Route:**\n  - Student Fee: ₹11,180/year\n  - Staff Fee: ₹13,860/year\n- **Palakkunnu Route:**\n  - Student Fee: ₹10,530/year\n  - Staff Fee: ₹13,130/year\n- **Uduma Route:**\n  - Student Fee: ₹10,060/year\n  - Staff Fee: ₹12,500/year\n- **Kalanadu Route:**\n  - Student Fee: ₹9,420/year\n  - Staff Fee: ₹11,660/year\n- **Melparamba Route:**\n  - Student Fee: ₹8,960/year\n  - Staff Fee: ₹11,240/year\n- **Chaliyancode Route:**\n  - Student Fee: ₹8,580/year\n  - Staff Fee: ₹10,710/year\n- **Chemnad Route:**\n  - Student Fee: ₹8,500/year\n  - Staff Fee: ₹10,290/year\n- **Kasaragod Route:**\n  - Student Fee: ₹8,400/year\n  - Staff Fee: ₹10,200/year\n- **Vidya Nagar Route:**\n  - Student Fee: ₹5,630/year\n  - Staff Fee: ₹6,930/year\n- **Nalam Mile Route:**\n  - Student Fee: ₹4,530/year\n  - Staff Fee: ₹5,570/year\n- **Cherkala Route:**\n  - Student Fee: ₹3,420/year\n  - Staff Fee: ₹4,200/year',
-    keywords: ['structure', 'detailed', 'staff', 'students', 'bus', 'fee', 'fee', 'fees', 'amount', 'pay', 'how much', 'bus', 'transport', 'route'],
-    patterns: ['detailed bus fee structure (staff & students)', 'fee ethra', 'what is the fee', 'bus route', 'bus fee', 'bus list'],
+    keywords: ['structure', 'detailed', 'staff', 'students', 'bus', 'fee', 'transport', 'route'],
+    patterns: ['detailed bus fee structure (staff & students)'],
   },
   {
     question: 'Tell me about Administrative Staff',
@@ -674,8 +685,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Detailed M.Tech Fee Breakdown (2025-26)',
     answer: '- **Tuition Fee:** ₹24,000\n- **Caution Deposit (Refundable):** ₹5,000\n- **Establishment Charges:** ₹2,000\n- **Admission Fee:** ₹1,000\n- **Library Fee:** ₹1,000\n- **Professional Bodies Fee:** ₹1,000\n- **Online Academic Management Fee:** ₹450\n- **Special Fee:** ₹350\n- **KTU Fees:**\n  - Examination Fee: ₹4,300\n  - Administration Fee: ₹1,050\n  - Affiliation Fee: ₹1,050\n  - Arts & Sports Fee: ₹530',
-    keywords: ['breakdown', 'fee', 'tech', 'detailed', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['detailed m.tech fee breakdown (2025-26)', 'fee ethra', 'what is the fee'],
+    keywords: ['breakdown', 'fee', 'tech', 'detailed', 'fees', 'amount'],
+    patterns: ['detailed m.tech fee breakdown (2025-26)'],
   },
   {
     question: 'Tell me about Lab Infrastructure & Software',
@@ -686,8 +697,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Hostel Living & Amenities',
     answer: '- **Room Types:** Single, double, and triple sharing rooms available.\n- **Mess Details:** Separate vegetarian and non-vegetarian mess available.\n- **Cuisine:** North Indian and South Indian food options.\n- **Security:** 24/7 security, CCTV surveillance, and warden supervision.\n- **Visiting:** Parents can visit on weekends with prior permission.\n- **Facilities:** Wi-Fi, reading room, TV room, indoor games, gym, laundry.',
-    keywords: ['living', 'hostel', 'amenities', 'hostel', 'room', 'mess', 'accommodation'],
-    patterns: ['hostel living & amenities', 'hostel details', 'hostel available'],
+    keywords: ['living', 'hostel', 'amenities', 'room', 'mess', 'accommodation'],
+    patterns: ['hostel living & amenities'],
   },
   {
     question: 'Tell me about Cultural & Hobby Clubs (Non-Technical)',
@@ -698,8 +709,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Fee Payment & Banking',
     answer: '- **Payment Mode:** Online payment available through the college portal.\n- **ATM:** Available near the college entrance.\n- **Bank Branch:** Central Bank of India (Campus Branch) - *Temporarily Closed*.\n- **Loans:** Assistance provided for educational loan documentation.',
-    keywords: ['payment', 'fee', 'banking', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['fee payment & banking', 'fee ethra', 'what is the fee'],
+    keywords: ['payment', 'fee', 'banking'],
+    patterns: ['fee payment & banking'],
   },
   {
     question: 'Tell me about Campus Events & Festivals',
@@ -758,14 +769,14 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Detailed Miscellaneous Fee Breakdown (B.Tech)',
     answer: '- **Total Miscellaneous Fee:** ₹9,800 (One-time/Annual as applicable)\n- **PTA Membership Fee:** ₹5,000\n- **College Union Fee:** ₹1,200\n- **Department Association Fee:** ₹1,000\n- **Career Guidance & Placement Fee:** ₹500\n- **Co-operative Society (Kit + ID Card):** ₹1,650\n- **Sports Development Fund:** ₹250\n- **Series Examination Fee:** ₹200',
-    keywords: ['detailed', 'tech', 'miscellaneous', 'fee', 'breakdown', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['detailed miscellaneous fee breakdown (b.tech)', 'fee ethra', 'what is the fee'],
+    keywords: ['detailed', 'tech', 'miscellaneous', 'fee', 'breakdown', 'fees', 'amount'],
+    patterns: ['detailed miscellaneous fee breakdown (b.tech)'],
   },
   {
     question: 'Tell me about Bus Pickup Schedule (Morning)',
     answer: '- **Pallikkara:** 8:10 AM\n- **Bekal:** 8:15 AM\n- **Palakkunnu:** 8:20 AM\n- **Uduma:** 8:25 AM\n- **Kalanadu:** 8:30 AM\n- **Melparamba:** 8:35 AM\n- **Chaliyancode:** 8:40 AM\n- **Chemnad:** 8:45 AM\n- **Kasaragod:** 8:50 AM\n- **Vidya Nagar:** 8:55 AM\n- **Nalam Mile:** 9:00 AM\n- **Cherkala:** 9:05 AM',
-    keywords: ['bus', 'morning', 'schedule', 'pickup', 'bus', 'transport', 'route'],
-    patterns: ['bus pickup schedule (morning)', 'bus route', 'bus fee', 'bus list'],
+    keywords: ['bus', 'morning', 'schedule', 'pickup', 'transport', 'route'],
+    patterns: ['bus pickup schedule (morning)'],
   },
   {
     question: 'Tell me about Campus Navigation: Landmarks',
@@ -848,20 +859,20 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Detailed Hostel Fees',
     answer: '- **General Category:** ₹9,250 per year.\n- **Reserved Category (SC/ST/OEC):** ₹2,250 per year.\n- **Policy:** Hostel fees are optional and apply equally to Regular and Lateral Entry students.',
-    keywords: ['fees', 'hostel', 'detailed', 'fee', 'fees', 'amount', 'pay', 'how much', 'hostel', 'room', 'mess', 'accommodation'],
-    patterns: ['detailed hostel fees', 'fee ethra', 'what is the fee', 'hostel details', 'hostel available'],
+    keywords: ['fees', 'hostel', 'detailed', 'fee', 'room', 'mess', 'accommodation'],
+    patterns: ['detailed hostel fees'],
   },
   {
     question: 'Tell me about Hostel Facilities & Mess',
     answer: '- **Capacity:** 300 (Boys), 200 (Girls - Shahanas Hostel).\n- **Mess:** Separate Vegetarian and Non-Vegetarian mess halls.\n- **Food Type:** North Indian and South Indian dishes available.\n- **Amenities:** Wi-Fi, Gym, TV room, Indoor games, Laundry.\n- **Medical:** First aid facility and tie-ups with nearby hospitals.',
-    keywords: ['mess', 'facilities', 'hostel', 'hostel', 'room', 'mess', 'accommodation'],
-    patterns: ['hostel facilities & mess', 'hostel details', 'hostel available'],
+    keywords: ['mess', 'facilities', 'hostel', 'room', 'accommodation'],
+    patterns: ['hostel facilities & mess'],
   },
   {
     question: 'Tell me about M.Tech Fee Components (Detailed)',
     answer: '- **Admission Fee:** ₹1,000\n- **Tuition Fee:** ₹24,000\n- **Special Fee:** ₹350\n- **Caution Deposit:** ₹5,000\n- **Establishment Charges:** ₹2,000\n- **Library Fees:** ₹1,000\n- **Professional Bodies:** ₹1,000\n- **Online Academic Mgmt:** ₹450\n- **KTU Exam Fee:** ₹4,300',
-    keywords: ['components', 'fee', 'tech', 'detailed', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['m.tech fee components (detailed)', 'fee ethra', 'what is the fee'],
+    keywords: ['components', 'fee', 'tech', 'detailed', 'fees'],
+    patterns: ['m.tech fee components (detailed)'],
   },
   {
     question: 'Tell me about Academic Calendar & Timing',
@@ -974,14 +985,14 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Transport: Fee Comparison',
     answer: '- **Pallikkara:** Student ₹11,910 vs Staff ₹14,810.\n- **Kasaragod:** Student ₹8,400 vs Staff ₹10,200.\n- **Cherkala:** Student ₹3,420 vs Staff ₹4,200.',
-    keywords: ['comparison', 'transport', 'fee', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['transport: fee comparison', 'fee ethra', 'what is the fee'],
+    keywords: ['comparison', 'transport', 'fee', 'fees'],
+    patterns: ['transport: fee comparison'],
   },
   {
     question: 'Tell me about B.Tech Fee Variations',
     answer: '- **Merit Seat:** ₹56,870.\n- **High Fee Seat:** ₹88,370.\n- **Lateral Entry (Merit):** ₹49,200.\n- **Lateral Entry (FW):** ₹10,950.',
-    keywords: ['variations', 'fee', 'tech', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['b.tech fee variations', 'fee ethra', 'what is the fee'],
+    keywords: ['variations', 'fee', 'tech', 'fees'],
+    patterns: ['b.tech fee variations'],
   },
   {
     question: 'Tell me about Nearby Tourist Spots',
@@ -998,8 +1009,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Bus Garage',
     answer: '- **Location:** Parking area along LBS Campus Road.\n- **Usage:** Parking for the 6 college buses.',
-    keywords: ['bus', 'garage', 'bus', 'transport', 'route'],
-    patterns: ['bus garage', 'bus route', 'bus fee', 'bus list'],
+    keywords: ['bus', 'garage', 'transport'],
+    patterns: ['bus garage'],
   },
   {
     question: 'Tell me about PG Section Building',
@@ -1088,8 +1099,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Fee Payment Method',
     answer: '- **Method:** Online payment through college portal.\n- **Cash:** Generally not accepted for main fees (Digital campus).',
-    keywords: ['method', 'payment', 'fee', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['fee payment method', 'fee ethra', 'what is the fee'],
+    keywords: ['method', 'payment', 'fee'],
+    patterns: ['fee payment method'],
   },
   {
     question: 'Tell me about Common Titles / Honorifics (Malayalam)',
@@ -1208,7 +1219,7 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Laboratory Facilities (Detailed by Department)',
     answer: '- **CSE/IT Labs:**\n    - Programming Lab (C, C++, Java)\n    - Data Structures Lab\n    - Database Management Lab\n    - Computer Networks Lab\n    - Operating Systems Lab\n    - Web Technology Lab\n    - Software Engineering Lab\n    - Project Lab\n- **ECE Labs:**\n    - Electronics Workshop\n    - Digital Electronics Lab\n    - Microprocessor & Microcontroller Lab\n    - Communication Systems Lab\n    - VLSI Design Lab\n    - DSP Lab\n    - Embedded Systems Lab\n- **EEE Labs:**\n    - Electrical Machines Lab\n    - Power Systems Lab\n    - Control Systems Lab\n    - Power Electronics Lab\n    - Measurements & Instrumentation Lab\n    - High Voltage Engineering Lab\n- **Mechanical Labs:**\n    - Workshop (Fitting, Welding, Machining)\n    - Fluid Mechanics Lab\n    - Thermal Engineering Lab\n    - Strength of Materials Lab\n    - CAD/CAM Lab\n    - Metrology Lab\n    - Dynamics Lab\n- **Civil Labs:**\n    - Surveying Lab\n    - Concrete & Highway Materials Lab\n    - Soil Mechanics Lab\n    - Structural Analysis Lab\n    - Environmental Engineering Lab\n    - CAD Lab',
-    keywords: ['laboratory', 'department', 'facilities', 'detailed'],
+    keywords: ['laboratory', 'lab', 'facilities', 'detailed'],
     patterns: ['laboratory facilities (detailed by department)'],
   },
   {
@@ -1238,8 +1249,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Hostel Discipline & Rules',
     answer: '- **Curfew Timing:** 9:00 PM on weekdays, 10:00 PM on weekends\n- **Outpass System:** Required for leaving hostel\n- **Visitors:** Allowed in visitor rooms only, restricted timings\n- **Mess Timings:**\n    - Breakfast: 7:30-9:00 AM\n    - Lunch: 12:30-2:00 PM\n    - Snacks: 4:00-5:00 PM\n    - Dinner: 7:30-9:00 PM\n- **Room Inspection:** Regular inspections by warden\n- **Electricity Usage:** Restricted timing for high-power appliances',
-    keywords: ['discipline', 'rules', 'hostel', 'hostel', 'room', 'mess', 'accommodation'],
-    patterns: ['hostel discipline & rules', 'hostel details', 'hostel available'],
+    keywords: ['discipline', 'rules', 'hostel'],
+    patterns: ['hostel discipline & rules'],
   },
   {
     question: 'Tell me about Campus Security',
@@ -1250,8 +1261,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Transportation Safety',
     answer: '- **Driver Training:** Professional drivers with valid licenses\n- **Vehicle Maintenance:** Regular servicing and fitness checks\n- **GPS Tracking:** Buses equipped with GPS\n- **Female Attendant:** Present in ladies\'\' buses\n- **Emergency Contact:** Bus coordinator contact shared with students\n- **Route Timings:** Strictly adhered to',
-    keywords: ['safety', 'transportation', 'bus', 'transport', 'route'],
-    patterns: ['transportation safety', 'bus route', 'bus fee', 'bus list'],
+    keywords: ['safety', 'transportation', 'bus', 'transport'],
+    patterns: ['transportation safety'],
   },
   {
     question: 'Tell me about Digital Learning Platforms',
@@ -1298,8 +1309,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Fee Refund Policy',
     answer: '- **Before Admission Confirmation:** Full refund minus processing fee\n- **After 15 days of Admission:** 50% refund\n- **After 30 days:** No refund of tuition fee\n- **Caution Deposit:** Refunded after course completion\n- **Hostel Fee:** Pro-rata refund if vacated mid-year',
-    keywords: ['refund', 'fee', 'policy', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['fee refund policy', 'fee ethra', 'what is the fee'],
+    keywords: ['refund', 'fee', 'policy'],
+    patterns: ['fee refund policy'],
   },
   {
     question: 'Tell me about Transfer & Migration',
@@ -1316,8 +1327,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Exam Fee Structure',
     answer: '- **Regular Exam Fee:** ₹600-800 per semester (approx.)\n- **Revaluation Fee:** ₹300-400 per subject\n- **Supplementary Exam Fee:** ₹500-700 per subject\n- **Thesis/Project Evaluation Fee:** ₹1000-1500\n- **Duplicate Mark Sheet:** ₹200-300',
-    keywords: ['structure', 'fee', 'exam', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['exam fee structure', 'fee ethra', 'what is the fee'],
+    keywords: ['structure', 'fee', 'exam', 'fees'],
+    patterns: ['exam fee structure'],
   },
   {
     question: 'Tell me about ID Card & Student Records',
@@ -1400,8 +1411,8 @@ const GENERATED_FAQS: OfflineFAQ[] = [
   {
     question: 'Tell me about Student Feedback System',
     answer: '- **Course Feedback:** Collected at end of each semester\n- **Faculty Evaluation:** Anonymous student feedback\n- **Infrastructure Feedback:** Regular surveys\n- **Online Portal:** Digital feedback submission\n- **Action Taken:** Improvements based on feedback',
-    keywords: ['system', 'feedback', 'student', 'fee', 'fees', 'amount', 'pay', 'how much'],
-    patterns: ['student feedback system', 'fee ethra', 'what is the fee'],
+    keywords: ['system', 'feedback', 'student'],
+    patterns: ['student feedback system'],
   },
   {
     question: 'Tell me about Campus IT Infrastructure',
@@ -1509,6 +1520,17 @@ export function matchFAQForOnline(query: string, cache?: OfflineCache): OfflineF
     // Intent disambiguation: penalize generic FAQs when user asks about specific roles
     if (isRoleQuery && GENERIC_FAQ_QUESTIONS.includes(faq.question.toLowerCase())) {
       score = Math.floor(score * 0.3); // Heavy penalty — let specific FAQs win
+    }
+
+    // Stronger filter: for role queries, ONLY allow FAQs whose question/answer
+    // mentions a role-related term. This prevents lab/program/facility FAQs from winning.
+    if (isRoleQuery && score > 0) {
+      const roleTerms = ['hod', 'head of department', 'faculty', 'professor', 'staff', 'dean', 'contact', 'principal'];
+      const faqText = (faq.question + ' ' + faq.answer).toLowerCase();
+      const hasRoleTerm = roleTerms.some(rt => faqText.includes(rt));
+      if (!hasRoleTerm) {
+        score = 0; // Complete suppression — this FAQ is irrelevant for a role query
+      }
     }
 
     if (score > bestScore) {

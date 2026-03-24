@@ -6,7 +6,7 @@ import {
   clearResponseCache,
   getResponseCacheSize,
 } from '@/lib/responseCache';
-import { matchFAQForOnline, DEFAULT_FAQS, OfflineCache, DEFAULT_NAVIGATION } from '@/lib/offlineCache';
+import { matchFAQForOnline, DEFAULT_FAQS, ALL_FAQS, OfflineCache, DEFAULT_NAVIGATION } from '@/lib/offlineCache';
 import { tryLocalResponse, cacheAIResponse } from '@/lib/localQueryHandler';
 
 // ─── queryNormalizer ───────────────────────────────────────────────────────
@@ -161,6 +161,58 @@ describe('matchFAQForOnline', () => {
     expect(match).not.toBeNull();
     expect(match!.answer).toContain('5 B.Tech programs');
   });
+
+  // ─── Problem query tests (reported bugs) ─────────────────────
+  describe('with full FAQ pool (DEFAULT + GENERATED)', () => {
+    const fullCache: OfflineCache = {
+      faqs: ALL_FAQS,
+      navigation: DEFAULT_NAVIGATION,
+      last_updated: new Date().toISOString(),
+    };
+
+    it('should match "hod of cse" to CSE HOD FAQ, NOT program list', () => {
+      const match = matchFAQForOnline('hod of cse', fullCache);
+      expect(match).not.toBeNull();
+      expect(match!.answer).toContain('Manoj Kumar G');
+      expect(match!.answer).not.toContain('Programming Lab');
+    });
+
+    it('should NOT match "What is the name of our HOD?" to lab list', () => {
+      const match = matchFAQForOnline('What is the name of our HOD?', fullCache);
+      // Should either match a HOD FAQ or return null (fall through to LLM)
+      if (match) {
+        expect(match.answer).not.toContain('Programming Lab');
+        expect(match.answer).not.toContain('B.Tech programs');
+        // Should contain role-related content
+        const answerLower = match.answer.toLowerCase();
+        const hasRoleContent = ['hod', 'head', 'professor', 'faculty', 'dean'].some(
+          term => answerLower.includes(term)
+        );
+        expect(hasRoleContent).toBe(true);
+      }
+    });
+
+    it('should match "who is the head of department" to faculty FAQ, NOT facilities', () => {
+      const match = matchFAQForOnline('who is the head of department', fullCache);
+      if (match) {
+        expect(match.answer).not.toContain('Programming Lab');
+        expect(match.answer).not.toContain('Auditorium');
+      }
+    });
+
+    it('should still match "lab facilities" to lab FAQ (regression check)', () => {
+      const match = matchFAQForOnline('lab facilities', fullCache);
+      if (match) {
+        expect(match.answer.toLowerCase()).toContain('lab');
+      }
+    });
+
+    it('should still match "fee structure" correctly (regression check)', () => {
+      const match = matchFAQForOnline('fee structure', fullCache);
+      expect(match).not.toBeNull();
+      expect(match!.answer.toLowerCase()).toContain('fee');
+    });
+  });
 });
 
 // ─── tryLocalResponse (end-to-end) ─────────────────────────────────────────
@@ -202,7 +254,7 @@ describe('tryLocalResponse', () => {
 
   it('should handle cached responses', () => {
     // Use a unique query that won't match any FAQ or intent
-    const uniqueQuery = 'explain advanced neural network backpropagation';
+    const uniqueQuery = 'zyxwvu obscure notkeyword foobarbaz uniquetest99';
     cacheAIResponse(uniqueQuery, 'Cached AI answer');
     const result = tryLocalResponse(uniqueQuery, noGPS);
     expect(result.handled).toBe(true);
