@@ -10,6 +10,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  isStreaming?: boolean;
 }
 
 interface ChatMessageProps {
@@ -89,6 +90,9 @@ export const ChatMessage = ({ message, speaker }: ChatMessageProps) => {
       >
         <p className="text-sm md:text-base leading-relaxed font-malayalam">
           {message.content}
+          {message.isStreaming && (
+            <span className="inline-block w-2 h-4 ml-0.5 bg-primary animate-pulse rounded-sm" />
+          )}
         </p>
         <div className="flex items-center justify-between mt-1.5">
           <p className={cn(
@@ -101,8 +105,8 @@ export const ChatMessage = ({ message, speaker }: ChatMessageProps) => {
             })}
           </p>
 
-          {/* Speak button for bot messages */}
-          {isBot && (
+          {/* Speak button for bot messages (hidden during streaming) */}
+          {isBot && !message.isStreaming && (
             <Button
               variant="ghost"
               size="sm"

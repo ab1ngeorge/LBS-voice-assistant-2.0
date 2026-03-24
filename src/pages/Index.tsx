@@ -4,6 +4,7 @@ import { Send } from "lucide-react";
 import { Header } from "@/components/Header";
 import { VoiceButton } from "@/components/VoiceButton";
 import { ChatContainer } from "@/components/ChatContainer";
+import { StatsBar } from "@/components/StatsBar";
 import { QuickActions } from "@/components/QuickActions";
 
 import { Message } from "@/components/ChatMessage";
@@ -12,13 +13,11 @@ import { Button } from "@/components/ui/button";
 import { lbsBotApi, ChatMessage } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { detectLanguage } from "@/lib/languageDetection";
-import { isBusIntent, getBusResponse } from "@/lib/busIntent";
-import { isNavigationIntent, getNavigationResponse } from "@/lib/navigationIntent";
-import { isWebsiteIntent, getWebsiteResponse } from "@/lib/websiteIntent";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { createEmptyMemory, rewriteQuery, updateMemory } from "@/lib/conversationMemory";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { initializeCache, handleOfflineQuery } from "@/lib/offlineCache";
+import { initializeCache, handleOfflineQuery, fetchAndMergeDynamicFAQs } from "@/lib/offlineCache";
+import { tryLocalResponse, cacheAIResponse } from "@/lib/localQueryHandler";
 
 // Check for Web Speech API support
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -52,9 +51,11 @@ const Index = () => {
   // Conversational memory — persists across renders, resets on page reload
   const memoryRef = useRef(createEmptyMemory());
 
-  // Initialize offline cache on mount
+  // Initialize offline cache on mount + fetch dynamic FAQs in background
   useEffect(() => {
-    initializeCache();
+    const cache = initializeCache();
+    // Non-blocking: fetch auto-promoted FAQs from Supabase and merge
+    fetchAndMergeDynamicFAQs(cache).catch(() => {});
   }, []);
 
   const recognitionRef = useRef<any>(null);
@@ -132,39 +133,62 @@ const Index = () => {
     });
   }, []);
 
-  // Play TTS for a message
+  // Smart TTS: Sarvam AI for Malayalam/Manglish (premium), Web Speech API for English (free)
   const playTTS = useCallback(async (text: string) => {
     setIsSpeaking(true);
     try {
-      const speaker = VOICE_GENDER_SPEAKER[voiceGender];
-      const response = await lbsBotApi.textToSpeech(text, speaker);
+      const lang = detectLanguage(text);
+      const useSarvam = lang === 'malayalam' || lang === 'manglish';
 
-      if (response.success && response.audioBase64) {
-        const audioUrl = `data:audio/mpeg;base64,${response.audioBase64}`;
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
+      if (useSarvam) {
+        // Premium Sarvam AI TTS for Indic languages
+        const speaker = VOICE_GENDER_SPEAKER[voiceGender];
+        const response = await lbsBotApi.textToSpeech(text, speaker);
 
-        audio.onended = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-        };
+        if (response.success && response.audioBase64) {
+          const audioUrl = `data:audio/mpeg;base64,${response.audioBase64}`;
+          const audio = new Audio(audioUrl);
+          audioRef.current = audio;
 
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-          console.error("Audio playback error");
-        };
+          audio.onended = () => {
+            setIsSpeaking(false);
+            audioRef.current = null;
+          };
 
-        await audio.play();
-      } else {
-        setIsSpeaking(false);
-        console.error("TTS failed:", response.error);
+          audio.onerror = () => {
+            // Fallback to Web Speech API if Sarvam audio fails
+            console.warn('Sarvam audio playback failed, falling back to Web Speech');
+            playWithWebSpeech(text);
+          };
+
+          await audio.play();
+          return;
+        }
+        // If Sarvam API call itself failed, fall through to Web Speech
+        console.warn('Sarvam TTS failed:', response.error, '— using Web Speech fallback');
       }
+
+      // Free Web Speech API for English or as fallback
+      playWithWebSpeech(text);
     } catch (error) {
-      console.error("TTS error:", error);
+      console.error('TTS error:', error);
       setIsSpeaking(false);
     }
   }, [voiceGender]);
+
+  // Web Speech API fallback
+  const playWithWebSpeech = useCallback((text: string) => {
+    if (!('speechSynthesis' in window)) {
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text.slice(0, 500));
+    utterance.lang = 'en-IN';
+    utterance.rate = 1.0;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }, []);
 
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
@@ -193,81 +217,41 @@ const Index = () => {
     }
 
     try {
-      // ── Navigation Intent Interception ──────────────────────────────
-      if (isNavigationIntent(resolvedText)) {
-        console.log('Navigation intent detected for:', resolvedText);
-        const userLocation = await getLocation();
-        const navResult = getNavigationResponse(resolvedText, userLocation);
+      // ── LOCAL QUERY PIPELINE ─────────────────────────────────────────
+      // tryLocalResponse handles: Navigation → Bus → Website → FAQ → Cache
+      // in strict order. Only if ALL local methods fail do we call the LLM.
+      const localResult = tryLocalResponse(resolvedText, await getLocation());
+
+      if (localResult.handled && localResult.response) {
+        console.log(`[Pipeline] Handled locally via: ${localResult.matchType}`);
 
         const botMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: navResult.message,
+          content: localResult.response,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, botMessage]);
         setIsProcessing(false);
 
-        // Update memory with the original user text
         updateMemory(text, memoryRef.current);
 
-        if (navResult.success && navResult.url) {
-          window.open(navResult.url, '_blank');
+        // Open URLs if applicable
+        if (localResult.navigationUrl) {
+          window.open(localResult.navigationUrl, '_blank');
+        }
+        if (localResult.websiteUrl) {
+          window.open(localResult.websiteUrl, '_blank');
         }
 
-        playTTS(navResult.message);
+        playTTS(localResult.response);
         return;
       }
 
-      // ── Bus Intent Interception ──────────────────────────────────
-      if (isBusIntent(resolvedText)) {
-        console.log('Bus intent detected for:', resolvedText);
-        const busResult = getBusResponse(resolvedText);
-
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: busResult.message,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, botMessage]);
-        setIsProcessing(false);
-
-        updateMemory(text, memoryRef.current);
-
-        playTTS(busResult.message);
-        return;
-      }
-
-      // ── Website Intent Interception ──────────────────────────────────
-      if (isWebsiteIntent(resolvedText)) {
-        console.log('Website intent detected for:', resolvedText);
-        const webResult = getWebsiteResponse(resolvedText);
-
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: webResult.message,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, botMessage]);
-        setIsProcessing(false);
-
-        updateMemory(text, memoryRef.current);
-
-        if (webResult.success && webResult.url) {
-          window.open(webResult.url, '_blank');
-        }
-
-        playTTS(webResult.message);
-        return;
-      }
-
-      // ── Normal Chat Flow ──────────────────────────────────────────
-
-      // OFFLINE MODE: Use cached data when no internet
+      // ── OFFLINE FALLBACK ────────────────────────────────────────────
+      // If no internet and local handler didn't match, use offline cache
       if (!isOnline) {
-        console.log('[Offline] Handling query offline:', resolvedText);
+        console.log('[Pipeline] Offline — using cached data');
         const offlineResult = handleOfflineQuery(resolvedText);
 
         const botMessage: Message = {
@@ -280,12 +264,11 @@ const Index = () => {
         setIsProcessing(false);
 
         updateMemory(text, memoryRef.current);
-
-        // No TTS in offline mode (requires internet)
         return;
       }
 
-      // ONLINE MODE: Full AI + RAG flow
+      // ── LLM API CALL (LAST RESORT) ─────────────────────────────────
+      console.log('[Pipeline] No local match — calling LLM');
       const detectedLanguage = detectLanguage(resolvedText);
       console.log('Detected language:', detectedLanguage);
 
@@ -294,44 +277,79 @@ const Index = () => {
         content: m.content,
       }));
 
-      // Send the resolved (rewritten) query + memory context to the backend
-      const response = await lbsBotApi.chat(resolvedText, conversationHistory, detectedLanguage, memoryRef.current);
+      // Create a streaming bot message placeholder
+      const streamingMsgId = (Date.now() + 1).toString();
+      const streamingMessage: Message = {
+        id: streamingMsgId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+        isStreaming: true,
+      };
+      setMessages((prev) => [...prev, streamingMessage]);
+
+      // Stream the response — onChunk appends text progressively
+      const response = await lbsBotApi.chatStream(
+        resolvedText,
+        conversationHistory,
+        detectedLanguage,
+        memoryRef.current,
+        (chunk: string) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === streamingMsgId
+                ? { ...m, content: m.content + chunk }
+                : m
+            )
+          );
+        },
+      );
 
       if (response.success && response.message) {
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: response.message,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, botMessage]);
+        // Finalize the streaming message
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamingMsgId
+              ? { ...m, content: response.message!, isStreaming: false }
+              : m
+          )
+        );
         setIsProcessing(false);
 
-        // Update memory with the original user text (not the rewritten one)
         updateMemory(text, memoryRef.current);
 
+        // Cache the AI response for repeat queries
+        cacheAIResponse(resolvedText, response.message);
+
         playTTS(response.message);
+      } else if ((response as any).rateLimited) {
+        // Rate limited
+        setMessages((prev) => prev.filter((m) => m.id !== streamingMsgId));
+        setIsProcessing(false);
+        toast({
+          title: "⏱️ Slow down!",
+          description: response.message || "Too many requests. Please wait a moment.",
+          variant: "destructive",
+        });
       } else {
+        // Error
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamingMsgId
+              ? { ...m, content: "Sorry, something went wrong! Please try again 🙏", isStreaming: false }
+              : m
+          )
+        );
+        setIsProcessing(false);
         toast({
           title: "Error",
           description: response.error || response.message || "Failed to get response",
           variant: "destructive",
         });
-
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "Sorry, something went wrong! Please try again 🙏",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-        setIsProcessing(false);
       }
     } catch (error) {
       console.error("Chat error:", error);
 
-      // If online but failed, it's a connection error
-      // If offline, provide offline fallback
       if (!isOnline) {
         const offlineResult = handleOfflineQuery(text);
         const botMessage: Message = {
@@ -511,6 +529,7 @@ const Index = () => {
       <Header voiceGender={voiceGender} onVoiceGenderChange={setVoiceGender} isOnline={isOnline} />
 
       {/* Stats Bar */}
+      <StatsBar />
 
 
       {/* Main Content */}

@@ -257,6 +257,110 @@ async function fetchKnowledgeBase(): Promise<string> {
   }
 }
 
+// ============================================================
+// HYBRID SEARCH: Semantic (embedding) + Keyword (full-text)
+// ============================================================
+
+/**
+ * Generate a 384-dim embedding for a query using HuggingFace Inference API.
+ * Model: sentence-transformers/all-MiniLM-L6-v2 (free tier, fast, 384-dim).
+ * Falls back to null if the API is unavailable.
+ */
+async function generateEmbedding(text: string): Promise<number[] | null> {
+  const HF_API_KEY = Deno.env.get('HF_API_KEY');
+  if (!HF_API_KEY) {
+    console.warn('[Hybrid] HF_API_KEY not set — skipping semantic search');
+    return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(
+      'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${HF_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: text, options: { wait_for_model: true } }),
+        signal: controller.signal,
+      }
+    );
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn('[Hybrid] Embedding API returned', response.status);
+      return null;
+    }
+
+    const embedding = await response.json();
+    // HuggingFace returns the embedding directly as number[]
+    if (Array.isArray(embedding) && embedding.length === 384) {
+      return embedding;
+    }
+    // Some models wrap it in an extra array
+    if (Array.isArray(embedding) && Array.isArray(embedding[0])) {
+      return embedding[0];
+    }
+    console.warn('[Hybrid] Unexpected embedding shape:', typeof embedding);
+    return null;
+  } catch (err) {
+    console.warn('[Hybrid] Embedding generation failed:', err);
+    return null;
+  }
+}
+
+/**
+ * Perform hybrid search: combines pgvector semantic similarity
+ * with PostgreSQL full-text keyword search via the hybrid_search RPC.
+ * Falls back to null if the RPC is unavailable.
+ */
+async function hybridSearch(query: string, matchCount = 5): Promise<string | null> {
+  try {
+    // Translate Malayalam to English keywords for better full-text matching
+    const translatedQuery = translateMalayalamQuery(query);
+    const searchText = `${query} ${translatedQuery}`.trim();
+
+    // Generate embedding (may be null if HF key is missing)
+    const embedding = await generateEmbedding(searchText);
+
+    console.log(`[Hybrid] Searching: "${searchText.substring(0, 60)}..." embedding=${embedding ? 'yes' : 'no'}`);
+
+    const { data, error } = await supabaseClient.rpc('hybrid_search', {
+      query_text: searchText,
+      query_embedding: embedding ? `[${embedding.join(',')}]` : null,
+      match_count: matchCount,
+      semantic_weight: embedding ? 0.6 : 0.0,  // If no embedding, rely 100% on keywords
+      keyword_weight: embedding ? 0.4 : 1.0,
+    });
+
+    if (error) {
+      console.warn('[Hybrid] RPC error:', error.message);
+      return null;
+    }
+
+    if (!data || data.length === 0) {
+      console.log('[Hybrid] No matches found');
+      return null;
+    }
+
+    console.log(`[Hybrid] Found ${data.length} matches (top score: ${data[0].combined_score.toFixed(3)})`);
+
+    // Concatenate matched sections into context
+    const context = data
+      .map((row: any) => row.content)
+      .join('\n\n');
+
+    return context.slice(0, 8000); // Cap at 8000 chars for token safety
+  } catch (err) {
+    console.warn('[Hybrid] Search failed:', err);
+    return null;
+  }
+}
 
 // Auto-detect language from user message
 function detectLanguage(message: string): Language {
@@ -581,12 +685,142 @@ function getRelevantKnowledge(query: string, fullKnowledge: string): string {
   return matched.join('\n').slice(0, 8000);
 }
 
+// ============================================================
+// RATE LIMITING HELPERS
+// ============================================================
+const RATE_LIMIT_MAX = 30; // max requests per minute per IP
+
+function getClientIp(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('x-real-ip')
+    || 'unknown';
+}
+
+async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number }> {
+  const windowStart = new Date();
+  windowStart.setSeconds(0, 0); // truncate to current minute
+
+  try {
+    // Try to get existing count for this window
+    const { data, error } = await supabaseClient
+      .from('rate_limits')
+      .select('request_count')
+      .eq('client_ip', ip)
+      .gte('window_start', windowStart.toISOString())
+      .order('window_start', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Rate limit check error:', error.message);
+      return { allowed: true, remaining: RATE_LIMIT_MAX }; // fail open
+    }
+
+    const currentCount = data?.request_count || 0;
+
+    if (currentCount >= RATE_LIMIT_MAX) {
+      return { allowed: false, remaining: 0 };
+    }
+
+    // Upsert: increment or insert
+    if (data) {
+      await supabaseClient
+        .from('rate_limits')
+        .update({ request_count: currentCount + 1 })
+        .eq('client_ip', ip)
+        .gte('window_start', windowStart.toISOString());
+    } else {
+      await supabaseClient
+        .from('rate_limits')
+        .insert({ client_ip: ip, window_start: windowStart.toISOString(), request_count: 1 });
+    }
+
+    return { allowed: true, remaining: RATE_LIMIT_MAX - currentCount - 1 };
+  } catch (err) {
+    console.error('Rate limit error:', err);
+    return { allowed: true, remaining: RATE_LIMIT_MAX }; // fail open
+  }
+}
+
+// ============================================================
+// UNANSWERED QUESTION DETECTION PHRASES (shared for streaming & non-streaming)
+// ============================================================
+const cantAnswerPhrases = [
+  // English
+  "don't have that info",
+  "don't have that information",
+  "don't have specific info",
+  "not available in my",
+  "not found in",
+  "check lbscek.ac.in",
+  "visit lbscek.ac.in",
+  "visit the official",
+  "contact the college directly",
+  "i don't know",
+  "i do not have",
+  "not in the provided context",
+  "cannot find",
+  "no information available",
+  // Malayalam (മലയാളം)
+  "വിവരം ലഭ്യമല്ല",
+  "വിവരം ഇല്ല",
+  "അറിയില്ല",
+  "ലഭ്യമല്ല",
+  "എന്റെ കൈയിൽ ഇല്ല",
+  "കൃത്യമായ വിവരം",
+  "ഔദ്യോഗിക വെബ്സൈറ്റ്",
+  "കോളേജുമായി ബന്ധപ്പെടുക",
+  "lbscek.ac.in സന്ദർശിക്കുക",
+  // Manglish
+  "ariyilla",
+  "information illa",
+  "vivaram illa",
+  "labhyamalla",
+  "college contact cheyyuka",
+  "website check cheyyuka",
+];
+
+// Log analytics (fire-and-forget)
+function logAnalytics(query: string, language: string, responseTimeMs: number, tokensUsed: number, wasAnswered: boolean) {
+  supabaseClient
+    .from('chat_analytics')
+    .insert({
+      query: query.substring(0, 500),
+      detected_language: language,
+      response_time_ms: responseTimeMs,
+      tokens_used: tokensUsed,
+      was_answered: wasAnswered,
+    })
+    .then(({ error }) => {
+      if (error) console.error('Analytics log error:', error.message);
+      else console.log('📊 Analytics logged');
+    });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const requestStartTime = Date.now();
+
   try {
+    // ── Rate Limiting ──────────────────────────────────────────
+    const clientIp = getClientIp(req);
+    const rateCheck = await checkRateLimit(clientIp);
+
+    if (!rateCheck.allowed) {
+      console.warn(`🚫 Rate limited IP: ${clientIp}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          rateLimited: true,
+          message: 'Too many requests! Please wait a moment before trying again. 🙏',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Input validation
     const rawBody = await req.json();
     const parseResult = ChatInputSchema.safeParse(rawBody);
@@ -618,21 +852,26 @@ Deno.serve(async (req) => {
     // Get the user's question
     const userQuery = message || messages?.[messages.length - 1]?.content || '';
 
-    // RAG Strategy: Knowledge base is PRIMARY, live website scraping is SUPPLEMENTAL
+    // RAG Strategy: Hybrid search is PRIMARY, keyword filter is FALLBACK
     let liveContent = '';
     let ragContext = '';
-
-    // Fetch knowledge from database (cached, with fallback)
-    const fullKnowledge = await fetchKnowledgeBase();
 
     // Resolve pronouns in query using memory BEFORE knowledge retrieval
     const resolvedQuery = resolveQueryWithMemory(userQuery, memory);
 
-    // Filter knowledge base to only include query-relevant sections (fixes token limit issues)
-    const relevantKnowledge = getRelevantKnowledge(resolvedQuery, fullKnowledge);
+    // Try hybrid search first (semantic + keyword via pgvector + tsvector)
+    const hybridResult = await hybridSearch(resolvedQuery, 5);
 
-    // Build context with filtered knowledge base
-    ragContext = `## COLLEGE KNOWLEDGE BASE (PRIMARY SOURCE - USE THIS FIRST):\n${relevantKnowledge}`;
+    if (hybridResult) {
+      console.log('[RAG] Using hybrid search results');
+      ragContext = `## COLLEGE KNOWLEDGE BASE (PRIMARY SOURCE - USE THIS FIRST):\n${hybridResult}`;
+    } else {
+      // Fallback: keyword-based section filter on the full knowledge base
+      console.log('[RAG] Hybrid search unavailable — falling back to keyword filter');
+      const fullKnowledge = await fetchKnowledgeBase();
+      const relevantKnowledge = getRelevantKnowledge(resolvedQuery, fullKnowledge);
+      ragContext = `## COLLEGE KNOWLEDGE BASE (PRIMARY SOURCE - USE THIS FIRST):\n${relevantKnowledge}`;
+    }
 
     // Only scrape the website if Firecrawl is available (for latest updates/news)
     if (FIRECRAWL_API_KEY && userQuery) {
@@ -674,13 +913,13 @@ Deno.serve(async (req) => {
     const languageInstruction = getLanguageInstruction(detectedLanguage);
     console.log('Auto-detected language:', detectedLanguage, 'for query:', userQuery.substring(0, 50));
 
-    // Timeout for Groq API call (15 seconds)
+    // ── Groq API call with STREAMING ───────────────────────────
     const groqController = new AbortController();
     const groqTimeout = setTimeout(() => groqController.abort(), 15000);
 
-    let response: Response;
+    let groqResponse: Response;
     try {
-      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
@@ -696,6 +935,7 @@ Deno.serve(async (req) => {
           ],
           max_tokens: 500,
           temperature: 0.2,
+          stream: true,
         }),
         signal: groqController.signal,
       });
@@ -709,14 +949,13 @@ Deno.serve(async (req) => {
     }
     clearTimeout(groqTimeout);
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
-      console.error('AI Gateway error:', response.status, errorText);
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text().catch(() => 'Unknown error');
+      console.error('AI Gateway error:', groqResponse.status, errorText);
 
-      // Return 200 with error message so Supabase client doesn't throw "non-2xx" error
-      const userMessage = response.status === 429
+      const userMessage = groqResponse.status === 429
         ? 'Too many requests. Please try again in a moment. 🙏'
-        : response.status === 402
+        : groqResponse.status === 402
           ? 'AI service temporarily unavailable. Please try again later.'
           : 'AI service error. Please try again later.';
 
@@ -726,79 +965,100 @@ Deno.serve(async (req) => {
       );
     }
 
-    const data = await response.json();
-    const assistantMessage = data.choices?.[0]?.message?.content || 'Sorry, please try again later!';
+    // ── Stream the response as SSE to the client ──────────────
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-    console.log('AI response generated with RAG context');
+    const stream = new ReadableStream({
+      async start(controller) {
+        let fullText = '';
+        let totalTokens = 0;
 
-    // ============================================================
-    // UNANSWERED QUESTION DETECTION
-    // If the bot couldn't answer, log the question for auto-resolution
-    // ============================================================
-    const cantAnswerPhrases = [
-      // English
-      "don't have that info",
-      "don't have that information",
-      "don't have specific info",
-      "not available in my",
-      "not found in",
-      "check lbscek.ac.in",
-      "visit lbscek.ac.in",
-      "visit the official",
-      "contact the college directly",
-      "i don't know",
-      "i do not have",
-      "not in the provided context",
-      "cannot find",
-      "no information available",
-      // Malayalam (മലയാളം)
-      "വിവരം ലഭ്യമല്ല",         // info not available
-      "വിവരം ഇല്ല",              // no info
-      "അറിയില്ല",               // don't know
-      "ലഭ്യമല്ല",               // not available
-      "എന്റെ കൈയിൽ ഇല്ല",       // not in my hands (don't have it)
-      "കൃത്യമായ വിവരം",         // exact info (used in "don't have exact info")
-      "ഔദ്യോഗിക വെബ്സൈറ്റ്",    // official website (directs to website)
-      "കോളേജുമായി ബന്ധപ്പെടുക", // contact the college
-      "lbscek.ac.in സന്ദർശിക്കുക", // visit lbscek.ac.in
-      // Manglish (Malayalam in English script)
-      "ariyilla",
-      "information illa",
-      "vivaram illa",
-      "labhyamalla",
-      "college contact cheyyuka",
-      "website check cheyyuka",
-    ];
-    const msgLower = assistantMessage.toLowerCase();
-    const isUnanswered = cantAnswerPhrases.some(phrase => msgLower.includes(phrase));
+        try {
+          const reader = groqResponse.body!.getReader();
+          let buffer = '';
 
-    if (isUnanswered && userQuery && userQuery.length > 5) {
-      // Fire-and-forget: log to unanswered_questions table
-      supabaseClient
-        .from('unanswered_questions')
-        .insert({
-          question: userQuery.substring(0, 500),
-          detected_language: detectedLanguage,
-        })
-        .then(({ error: logError }) => {
-          if (logError) {
-            console.error('Failed to log unanswered question:', logError.message);
-          } else {
-            console.log('📝 Logged unanswered question for auto-resolution:', userQuery.substring(0, 80));
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // keep incomplete line in buffer
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+              const jsonStr = trimmed.slice(6);
+              if (jsonStr === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const delta = parsed.choices?.[0]?.delta?.content || '';
+                if (delta) {
+                  fullText += delta;
+                  // Send chunk as SSE
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'chunk', text: delta })}\n\n`));
+                }
+                // Capture usage if present (Groq sends it in the last chunk)
+                if (parsed.usage) {
+                  totalTokens = parsed.usage.total_tokens || 0;
+                }
+              } catch {
+                // Skip malformed JSON chunks
+              }
+            }
           }
-        });
-    }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: assistantMessage
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+          // ── Post-stream processing ─────────────────────────────
+          const responseTimeMs = Date.now() - requestStartTime;
+          const assistantMessage = fullText || 'Sorry, please try again later!';
+
+          console.log('AI streaming response completed with RAG context');
+
+          // Send the final "done" event
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', fullText: assistantMessage })}\n\n`));
+
+          // Unanswered question detection
+          const msgLower = assistantMessage.toLowerCase();
+          const isUnanswered = cantAnswerPhrases.some(phrase => msgLower.includes(phrase));
+
+          if (isUnanswered && userQuery && userQuery.length > 5) {
+            supabaseClient
+              .from('unanswered_questions')
+              .insert({
+                question: userQuery.substring(0, 500),
+                detected_language: detectedLanguage,
+              })
+              .then(({ error: logError }) => {
+                if (logError) console.error('Failed to log unanswered question:', logError.message);
+                else console.log('📝 Logged unanswered question for auto-resolution:', userQuery.substring(0, 80));
+              });
+          }
+
+          // Log analytics
+          logAnalytics(userQuery, detectedLanguage, responseTimeMs, totalTokens, !isUnanswered);
+
+          controller.close();
+        } catch (streamErr) {
+          console.error('Stream processing error:', streamErr);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Stream interrupted' })}\n\n`));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Chat error:', error);
-    // Return 200 with error message to avoid Supabase client "non-2xx" error
     return new Response(
       JSON.stringify({ success: false, message: 'Something went wrong. Please try again.' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

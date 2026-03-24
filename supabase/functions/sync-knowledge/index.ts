@@ -340,8 +340,72 @@ Deno.serve(async (req) => {
 
         const skipped = sortedPages.length - pagesToSync.length
 
-        console.log('\n=== Sync Complete ===')
+        console.log('\n=== Content Sync Complete ===')
         console.log(`Synced: ${synced} | Skipped: ${skipped} | Failed: ${failed}`)
+
+        // ── Generate embeddings for synced sections ──────────────────
+        const HF_API_KEY = Deno.env.get('HF_API_KEY')
+        let embeddingsGenerated = 0
+
+        if (HF_API_KEY && synced > 0) {
+            console.log('\n=== Generating Embeddings ===')
+
+            for (const record of records) {
+                try {
+                    // Create a concise text for embedding (title + first 500 chars of content)
+                    const embeddingText = `${record.section_title}. ${record.content.substring(0, 500)}`
+
+                    const controller = new AbortController()
+                    const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+                    const response = await fetch(
+                        'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${HF_API_KEY}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ inputs: embeddingText, options: { wait_for_model: true } }),
+                            signal: controller.signal,
+                        }
+                    )
+
+                    clearTimeout(timeoutId)
+
+                    if (response.ok) {
+                        let embedding = await response.json()
+                        // Handle nested array response
+                        if (Array.isArray(embedding) && Array.isArray(embedding[0])) {
+                            embedding = embedding[0]
+                        }
+
+                        if (Array.isArray(embedding) && embedding.length === 384) {
+                            const { error: embError } = await supabase
+                                .from('knowledge_base')
+                                .update({ embedding: `[${embedding.join(',')}]` })
+                                .eq('section_key', record.section_key)
+
+                            if (!embError) {
+                                embeddingsGenerated++
+                                console.log(`  ✓ Embedding: ${record.section_key}`)
+                            } else {
+                                console.warn(`  ✗ Embedding store failed for ${record.section_key}:`, embError.message)
+                            }
+                        }
+                    }
+
+                    // Rate limit: 250ms between HuggingFace API calls
+                    await new Promise(resolve => setTimeout(resolve, 250))
+                } catch (embErr) {
+                    console.warn(`  ✗ Embedding failed for ${record.section_key}:`, embErr)
+                }
+            }
+
+            console.log(`Embeddings generated: ${embeddingsGenerated}/${records.length}`)
+        } else if (!HF_API_KEY) {
+            console.log('\n[Embeddings] Skipped — HF_API_KEY not configured')
+        }
 
         return new Response(
             JSON.stringify({
