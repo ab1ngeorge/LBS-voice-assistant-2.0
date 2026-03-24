@@ -135,6 +135,32 @@ describe('matchFAQForOnline', () => {
     const match = matchFAQForOnline('hi', cache);
     expect(match).toBeNull();
   });
+
+  // ─── HOD-specific tests ──────────────────────────────────────
+  it('should match "CSE HOD name" to HOD FAQ, NOT departments', () => {
+    const match = matchFAQForOnline('CSE HOD name', cache);
+    expect(match).not.toBeNull();
+    expect(match!.answer).toContain('Manoj Kumar G');
+    expect(match!.answer).not.toContain('5 B.Tech programs');
+  });
+
+  it('should match "who is the hod of cse" to HOD FAQ', () => {
+    const match = matchFAQForOnline('who is the hod of cse', cache);
+    expect(match).not.toBeNull();
+    expect(match!.answer).toContain('Manoj Kumar G');
+  });
+
+  it('should match "ECE HOD" to ECE HOD FAQ', () => {
+    const match = matchFAQForOnline('ECE HOD', cache);
+    expect(match).not.toBeNull();
+    expect(match!.answer).toContain('Mary Reena');
+  });
+
+  it('should still match "departments available" to departments FAQ', () => {
+    const match = matchFAQForOnline('what departments are available', cache);
+    expect(match).not.toBeNull();
+    expect(match!.answer).toContain('5 B.Tech programs');
+  });
 });
 
 // ─── tryLocalResponse (end-to-end) ─────────────────────────────────────────
