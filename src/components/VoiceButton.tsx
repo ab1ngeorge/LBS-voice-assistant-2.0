@@ -1,5 +1,7 @@
 import { Mic, Loader2, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AudioVisualizer } from "@/components/AudioVisualizer";
+import type { FrequencyBands } from "@/hooks/useAudioAnalyser";
 
 interface VoiceButtonProps {
   isListening: boolean;
@@ -7,10 +9,28 @@ interface VoiceButtonProps {
   isSpeaking: boolean;
   onToggle: () => void;
   voiceLang?: string;
+  /** Real-time frequency data from useAudioAnalyser */
+  frequencyBands?: FrequencyBands;
+  /** Whether the audio analyser is actively processing */
+  isAudioActive?: boolean;
 }
 
-export const VoiceButton = ({ isListening, isProcessing, isSpeaking, onToggle, voiceLang = 'en-IN' }: VoiceButtonProps) => {
+export const VoiceButton = ({
+  isListening,
+  isProcessing,
+  isSpeaking,
+  onToggle,
+  voiceLang = 'en-IN',
+  frequencyBands,
+  isAudioActive = false,
+}: VoiceButtonProps) => {
   const isMl = voiceLang === 'ml-IN';
+
+  // Show the canvas visualizer when we have real frequency data
+  const showVisualizer = !!frequencyBands && (isAudioActive || isListening || isSpeaking);
+
+  // Fall back to CSS animations when no analyser data is available
+  const useCssFallback = !frequencyBands;
 
   const getStatusText = () => {
     if (isSpeaking) return isMl ? "നിർത്തൂ" : "Tap to stop";
@@ -21,8 +41,20 @@ export const VoiceButton = ({ isListening, isProcessing, isSpeaking, onToggle, v
 
   return (
     <div className="relative">
-      {/* Pulse rings when listening */}
-      {isListening && (
+      {/* ── Real-time Audio Visualizer (canvas) ─────────────────────── */}
+      {frequencyBands && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
+             style={{ margin: '-50px' }}>
+          <AudioVisualizer
+            frequencyBands={frequencyBands}
+            isActive={showVisualizer}
+            size={220}
+          />
+        </div>
+      )}
+
+      {/* ── CSS fallback: Pulse rings when listening (no analyser) ─── */}
+      {useCssFallback && isListening && (
         <>
           <div className="absolute inset-0 rounded-full voice-gradient animate-pulse-ring" />
           <div className="absolute inset-0 rounded-full voice-gradient animate-pulse-ring" style={{ animationDelay: "0.5s" }} />
@@ -30,8 +62,8 @@ export const VoiceButton = ({ isListening, isProcessing, isSpeaking, onToggle, v
         </>
       )}
 
-      {/* Speaking indicator rings */}
-      {isSpeaking && (
+      {/* ── CSS fallback: Speaking indicator rings (no analyser) ───── */}
+      {useCssFallback && isSpeaking && (
         <>
           <div className="absolute inset-0 rounded-full bg-green-500/30 animate-pulse" />
           <div className="absolute inset-0 rounded-full bg-green-500/20 animate-ping" />
@@ -43,7 +75,7 @@ export const VoiceButton = ({ isListening, isProcessing, isSpeaking, onToggle, v
         onClick={onToggle}
         disabled={isProcessing}
         className={cn(
-          "relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all duration-300 transform",
+          "relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all duration-300 transform z-10",
           isListening
             ? "voice-gradient glow-effect scale-110"
             : isSpeaking
@@ -78,7 +110,7 @@ export const VoiceButton = ({ isListening, isProcessing, isSpeaking, onToggle, v
 
       {/* Status text */}
       <p className={cn(
-        "absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm font-medium whitespace-nowrap transition-all duration-300",
+        "absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm font-medium whitespace-nowrap transition-all duration-300 z-10",
         isListening ? "text-primary" : isSpeaking ? "text-green-500" : "text-muted-foreground"
       )}>
         {getStatusText()}

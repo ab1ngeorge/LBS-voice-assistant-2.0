@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 650" width="800" height="650" font-family="'Times New Roman', Times, serif">
+
+  <!-- Definitions for Arrowheads and Filters -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000" />
+    </marker>
+    <marker id="arrow-dashed" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333333" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="650" fill="#ffffff" />
+
+  <!-- ========================================== -->
+  <!-- 1. CLIENT ENVIRONMENT REGION               -->
+  <!-- ========================================== -->
+  <rect x="50" y="30" width="700" height="90" fill="none" stroke="#000000" stroke-width="1.5" stroke-dasharray="8,4" />
+  <rect x="50" y="30" width="130" height="20" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="115" y="44" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">Client Environment</text>
+
+  <!-- Client Nodes -->
+  <rect x="180" y="60" width="120" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="240" y="84" font-size="12" text-anchor="middle" fill="#000000">Web Interface</text>
+
+  <rect x="340" y="60" width="120" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="400" y="84" font-size="12" text-anchor="middle" fill="#000000">Voice Input/Output</text>
+
+  <rect x="500" y="60" width="120" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="560" y="84" font-size="12" text-anchor="middle" fill="#000000">Mobile Client</text>
+
+
+  <!-- ========================================== -->
+  <!-- 2. API / EDGE ROUTING REGION               -->
+  <!-- ========================================== -->
+  <rect x="50" y="150" width="700" height="80" fill="none" stroke="#000000" stroke-width="1.5" stroke-dasharray="8,4" />
+  <rect x="50" y="150" width="110" height="20" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="105" y="164" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">API Gateway</text>
+
+  <rect x="250" y="170" width="300" height="40" rx="3" fill="#f0f0f0" stroke="#000000" stroke-width="1.5" />
+  <text x="400" y="195" font-size="13" font-weight="bold" text-anchor="middle" fill="#000000">Request Handler &amp; Load Balancer</text>
+
+
+  <!-- ========================================== -->
+  <!-- 3. CORE PROCESSING PIPELINE REGION         -->
+  <!-- ========================================== -->
+  <rect x="50" y="260" width="480" height="180" fill="none" stroke="#000000" stroke-width="1.5" stroke-dasharray="8,4" />
+  <rect x="50" y="260" width="150" height="20" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="125" y="274" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">Hybrid RAG Pipeline</text>
+
+  <rect x="90" y="300" width="130" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="155" y="325" font-size="12" text-anchor="middle" fill="#000000">Speech-to-Text (STT)</text>
+
+  <rect x="90" y="370" width="130" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="155" y="395" font-size="12" text-anchor="middle" fill="#000000">Text-to-Speech (TTS)</text>
+
+  <rect x="270" y="300" width="120" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="330" y="325" font-size="12" text-anchor="middle" fill="#000000">Query Analyzer</text>
+
+  <path d="M 270 370 L 390 370 L 400 390 L 390 410 L 270 410 Z" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+  <text x="330" y="395" font-size="12" text-anchor="middle" fill="#000000">Response Gen.</text>
+
+  <rect x="420" y="280" width="90" height="140" fill="#e6e6e6" stroke="#000000" stroke-width="1.5" />
+  <text x="465" y="340" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">RAG Context</text>
+  <text x="465" y="355" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">Manager</text>
+
+
+  <!-- ========================================== -->
+  <!-- 4. EXTERNAL SERVICES REGION                -->
+  <!-- ========================================== -->
+  <rect x="560" y="260" width="190" height="180" fill="none" stroke="#000000" stroke-width="1.5" stroke-dasharray="8,4" />
+  <rect x="560" y="260" width="120" height="20" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="620" y="274" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">External APIs</text>
+
+  <rect x="590" y="300" width="120" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="650" y="325" font-size="12" text-anchor="middle" fill="#000000">Large Language Model</text>
+
+  <rect x="590" y="370" width="120" height="40" rx="3" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="650" y="395" font-size="12" text-anchor="middle" fill="#000000">Transcription APIs</text>
+
+
+  <!-- ========================================== -->
+  <!-- 5. DATABASE & STORAGE REGION (Cylinders)   -->
+  <!-- ========================================== -->
+  <rect x="50" y="470" width="700" height="110" fill="none" stroke="#000000" stroke-width="1.5" stroke-dasharray="8,4" />
+  <rect x="50" y="470" width="120" height="20" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <text x="110" y="484" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">Data Layer</text>
+
+  <!-- Vector Database (Cylinder Path) -->
+  <path d="M 200 520 C 200 510, 320 510, 320 520 C 320 530, 200 530, 200 520 L 200 550 C 200 560, 320 560, 320 550 Z" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <path d="M 200 520 C 200 530, 320 530, 320 520" fill="none" stroke="#000000" stroke-width="1.5" />
+  <text x="260" y="542" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">Vector Embeddings</text>
+
+  <!-- FAQ Database (Cylinder Path) -->
+  <path d="M 460 520 C 460 510, 580 510, 580 520 C 580 530, 460 530, 460 520 L 460 550 C 460 560, 580 560, 580 550 Z" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+  <path d="M 460 520 C 460 530, 580 530, 580 520" fill="none" stroke="#000000" stroke-width="1.5" />
+  <text x="520" y="542" font-size="12" font-weight="bold" text-anchor="middle" fill="#000000">Relational Database</text>
+
+
+  <!-- ========================================== -->
+  <!-- CONNECTION LINES AND ARROWS                -->
+  <!-- ========================================== -->
+  
+  <!-- Client to API -->
+  <line x1="240" y1="100" x2="350" y2="170" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+  <line x1="400" y1="100" x2="400" y2="160" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+  <line x1="560" y1="100" x2="450" y2="170" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- API to Pipeline -->
+  <line x1="400" y1="210" x2="400" y2="240" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+  <line x1="400" y1="240" x2="330" y2="290" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- STT to Query Analyzer -->
+  <line x1="220" y1="320" x2="260" y2="320" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- Query Analyzer to RAG Context -->
+  <line x1="390" y1="320" x2="410" y2="320" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- RAG Context to Response Gen (reverse flow indicator) -->
+  <line x1="420" y1="390" x2="400" y2="390" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- Response Gen to TTS -->
+  <line x1="270" y1="390" x2="230" y2="390" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- API to STT (Direct audio pipeline indication) -->
+  <line x1="250" y1="190" x2="160" y2="210" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,2" />
+  <line x1="160" y1="210" x2="160" y2="290" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#arrow)" />
+
+  <!-- TTS to API (Output audio pipeline) -->
+  <line x1="120" y1="370" x2="120" y2="190" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,2" />
+  <line x1="120" y1="190" x2="250" y2="190" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#arrow)" />
+
+  <!-- RAG to LLM API (Bi-directional) -->
+  <line x1="510" y1="310" x2="580" y2="310" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+  <line x1="580" y1="330" x2="510" y2="330" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- STT/TTS to Transcription APIs -->
+  <line x1="155" y1="340" x2="155" y2="360" stroke="#000000" stroke-width="1.5" stroke-dasharray="2,2" /> <!-- Connect STT to TTS box spacing -->
+  <line x1="220" y1="385" x2="580" y2="385" stroke="#000000" stroke-width="1.2" stroke-dasharray="6,3" marker-end="url(#arrow-dashed)" />
+  <text x="390" y="378" font-size="10" font-style="italic" text-anchor="middle" fill="#555555">Remote Processing</text>
+
+  <!-- RAG to Vector DB -->
+  <line x1="465" y1="420" x2="465" y2="445" stroke="#000000" stroke-width="1.5" />
+  <line x1="465" y1="445" x2="260" y2="445" stroke="#000000" stroke-width="1.5" />
+  <line x1="260" y1="445" x2="260" y2="505" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+  <line x1="280" y1="505" x2="280" y2="465" stroke="#000000" stroke-width="1.5" />
+  <line x1="280" y1="465" x2="480" y2="465" stroke="#000000" stroke-width="1.5" />
+  <line x1="480" y1="465" x2="480" y2="420" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <!-- RAG to Relational DB -->
+  <line x1="495" y1="420" x2="495" y2="460" stroke="#000000" stroke-width="1.5" />
+  <line x1="495" y1="460" x2="520" y2="460" stroke="#000000" stroke-width="1.5" />
+  <line x1="520" y1="460" x2="520" y2="505" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+  
+  <line x1="540" y1="505" x2="540" y2="440" stroke="#000000" stroke-width="1.5" />
+  <line x1="540" y1="440" x2="510" y2="440" stroke="#000000" stroke-width="1.5" />
+  <line x1="510" y1="440" x2="510" y2="420" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)" />
+
+
+  <!-- ========================================== -->
+  <!-- FIGURE CAPTION                             -->
+  <!-- ========================================== -->
+  <text x="400" y="620" font-size="13" text-anchor="middle" fill="#000000">
+    <tspan font-weight="bold">Fig. 1.</tspan> Proposed system architecture for the hybrid retrieval-augmented generation (RAG) voice assistant.
+  </text>
+
+</svg>

@@ -1,13 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import {
-  initializeCache,
+  initializeCacheAsync,
+  loadOfflineData,
   loadCache,
   matchOfflineFAQ,
   matchOfflineNavigation,
   handleOfflineQuery,
   isCacheStale,
-  DEFAULT_FAQS,
-  DEFAULT_NAVIGATION,
+  getDefaultFaqs,
+  getDefaultNavigation,
   OfflineCache,
 } from '@/lib/offlineCache';
 
@@ -23,16 +24,52 @@ const localStorageMock = (() => {
 })();
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
+// Load offline data before all tests
+beforeAll(async () => {
+  // Mock fetch to return the actual JSON file
+  const fs = await import('fs');
+  const path = await import('path');
+  const jsonPath = path.resolve(__dirname, '../../public/offline-data.json');
+  const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
+
+  global.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url === '/offline-data.json') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(JSON.parse(jsonContent)),
+      } as Response);
+    }
+    return Promise.reject(new Error(`Unmocked fetch: ${url}`));
+  });
+
+  await loadOfflineData();
+});
+
 beforeEach(() => {
   localStorageMock.clear();
   vi.clearAllMocks();
 });
 
-// ─── initializeCache ───────────────────────────────────────────────────
+// ─── initializeCacheAsync ───────────────────────────────────────────────────
 
-describe('initializeCache', () => {
-  it('should seed default FAQs on first load', () => {
-    const cache = initializeCache();
+describe('initializeCacheAsync', () => {
+  it('should seed default FAQs on first load', async () => {
+    // Re-mock fetch for this test
+    const fs = await import('fs');
+    const path = await import('path');
+    const jsonPath = path.resolve(__dirname, '../../public/offline-data.json');
+    const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/offline-data.json') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(JSON.parse(jsonContent)),
+        } as Response);
+      }
+      return Promise.reject(new Error(`Unmocked fetch: ${url}`));
+    });
+
+    const cache = await initializeCacheAsync();
     expect(cache.faqs.length).toBeGreaterThanOrEqual(20);
     expect(cache.navigation.length).toBeGreaterThanOrEqual(10);
     expect(cache.last_updated).toBeTruthy();
@@ -46,20 +83,25 @@ describe('initializeCache', () => {
     };
     localStorageMock.setItem('lbs_offline_cache', JSON.stringify(custom));
 
-    const cache = initializeCache();
-    expect(cache.faqs.length).toBe(1);
-    expect(cache.faqs[0].question).toBe('Test?');
+    const cache = loadCache();
+    expect(cache).not.toBeNull();
+    expect(cache!.faqs.length).toBe(1);
+    expect(cache!.faqs[0].question).toBe('Test?');
   });
 });
 
 // ─── matchOfflineFAQ ───────────────────────────────────────────────────
 
 describe('matchOfflineFAQ', () => {
-  const cache: OfflineCache = {
-    faqs: DEFAULT_FAQS,
-    navigation: DEFAULT_NAVIGATION,
-    last_updated: new Date().toISOString(),
-  };
+  let cache: OfflineCache;
+
+  beforeAll(() => {
+    cache = {
+      faqs: getDefaultFaqs(),
+      navigation: getDefaultNavigation(),
+      last_updated: new Date().toISOString(),
+    };
+  });
 
   it('should match CSE-related query', () => {
     const match = matchOfflineFAQ('What are CSE department timings?', cache);
@@ -111,11 +153,15 @@ describe('matchOfflineFAQ', () => {
 // ─── matchOfflineNavigation ────────────────────────────────────────────
 
 describe('matchOfflineNavigation', () => {
-  const cache: OfflineCache = {
-    faqs: DEFAULT_FAQS,
-    navigation: DEFAULT_NAVIGATION,
-    last_updated: new Date().toISOString(),
-  };
+  let cache: OfflineCache;
+
+  beforeAll(() => {
+    cache = {
+      faqs: getDefaultFaqs(),
+      navigation: getDefaultNavigation(),
+      last_updated: new Date().toISOString(),
+    };
+  });
 
   it('should match library navigation', () => {
     const match = matchOfflineNavigation('library', cache);
@@ -144,11 +190,15 @@ describe('matchOfflineNavigation', () => {
 // ─── handleOfflineQuery ────────────────────────────────────────────────
 
 describe('handleOfflineQuery', () => {
-  const freshCache: OfflineCache = {
-    faqs: DEFAULT_FAQS,
-    navigation: DEFAULT_NAVIGATION,
-    last_updated: new Date().toISOString(),
-  };
+  let freshCache: OfflineCache;
+
+  beforeAll(() => {
+    freshCache = {
+      faqs: getDefaultFaqs(),
+      navigation: getDefaultNavigation(),
+      last_updated: new Date().toISOString(),
+    };
+  });
 
   it('should return FAQ match for fee query', () => {
     const result = handleOfflineQuery('fee structure', freshCache);
@@ -178,8 +228,8 @@ describe('handleOfflineQuery', () => {
 
   it('should flag stale cache', () => {
     const staleCache: OfflineCache = {
-      faqs: DEFAULT_FAQS,
-      navigation: DEFAULT_NAVIGATION,
+      faqs: getDefaultFaqs(),
+      navigation: getDefaultNavigation(),
       last_updated: '2020-01-01T00:00:00Z',
     };
     const result = handleOfflineQuery('fee structure', staleCache);

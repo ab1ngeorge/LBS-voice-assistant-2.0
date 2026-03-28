@@ -142,6 +142,11 @@
   .glow-effect {
     box-shadow: var(--shadow-glow);
   }
+
+  .audio-visualizer-canvas {
+    pointer-events: none;
+    display: block;
+  }
 }
 
 @layer utilities {

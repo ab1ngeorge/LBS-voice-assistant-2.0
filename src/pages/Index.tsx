@@ -16,9 +16,10 @@ import { detectLanguage } from "@/lib/languageDetection";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { createEmptyMemory, rewriteQuery, updateMemory } from "@/lib/conversationMemory";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { initializeCache, handleOfflineQuery, fetchAndMergeDynamicFAQs } from "@/lib/offlineCache";
+import { initializeCacheAsync, handleOfflineQuery, fetchAndMergeDynamicFAQs } from "@/lib/offlineCache";
 import { tryLocalResponse, cacheAIResponse } from "@/lib/localQueryHandler";
 import { playStreamingAudio } from "@/lib/streamingAudio";
+import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
 
 // Check for Web Speech API support
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -49,14 +50,18 @@ const Index = () => {
   const { getLocation } = useGeolocation();
   const { isOnline } = useNetworkStatus();
 
+  // Audio analyser for real-time visualizer
+  const { frequencyBands, isActive: isAudioActive, connectAudioElement, connectMediaStream, disconnect: disconnectAnalyser } = useAudioAnalyser();
+
   // Conversational memory — persists across renders, resets on page reload
   const memoryRef = useRef(createEmptyMemory());
 
   // Initialize offline cache on mount + fetch dynamic FAQs in background
   useEffect(() => {
-    const cache = initializeCache();
-    // Non-blocking: fetch auto-promoted FAQs from Supabase and merge
-    fetchAndMergeDynamicFAQs(cache).catch(() => {});
+    initializeCacheAsync().then((cache) => {
+      // Non-blocking: fetch auto-promoted FAQs from Supabase and merge
+      fetchAndMergeDynamicFAQs(cache).catch(() => {});
+    });
   }, []);
 
   const recognitionRef = useRef<any>(null);
@@ -150,14 +155,19 @@ const Index = () => {
           const handle = playStreamingAudio(response);
           audioRef.current = handle.audio;
 
+          // Connect to audio analyser for real-time visualization
+          connectAudioElement(handle.audio);
+
           handle.done
             .then(() => {
               setIsSpeaking(false);
               audioRef.current = null;
+              disconnectAnalyser();
             })
             .catch(() => {
               // Streaming playback failed — fall back to Web Speech
               console.warn('Streaming audio playback failed, falling back to Web Speech');
+              disconnectAnalyser();
               playWithWebSpeech(text);
             });
 
@@ -174,7 +184,7 @@ const Index = () => {
       console.error('TTS error:', error);
       setIsSpeaking(false);
     }
-  }, [voiceGender]);
+  }, [voiceGender, connectAudioElement, disconnectAnalyser]);
 
   // Web Speech API fallback
   const playWithWebSpeech = useCallback((text: string) => {
@@ -198,6 +208,7 @@ const Index = () => {
       audioRef.current.pause();
       audioRef.current = null;
       setIsSpeaking(false);
+      disconnectAnalyser();
     }
 
     const userMessage: Message = {
@@ -368,7 +379,7 @@ const Index = () => {
       }
       setIsProcessing(false);
     }
-  }, [messages, toast, playTTS, getLocation, isOnline]);
+  }, [messages, toast, playTTS, getLocation, isOnline, disconnectAnalyser]);
 
   // Process recorded audio with Google STT, fallback to browser STT
   const processAudioWithGoogleSTT = useCallback(async (audioBlob: Blob) => {
@@ -422,6 +433,9 @@ const Index = () => {
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Connect mic to audio analyser for real-time visualization
+      connectMediaStream(stream);
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
@@ -439,6 +453,7 @@ const Index = () => {
       mediaRecorder.onstop = () => {
         // Stop all tracks to release the mic
         stream.getTracks().forEach(track => track.stop());
+        disconnectAnalyser();
 
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
         console.log(`Recording stopped: ${audioBlob.size} bytes`);
@@ -470,7 +485,7 @@ const Index = () => {
         variant: "destructive",
       });
     }
-  }, [processAudioWithGoogleSTT, toast]);
+  }, [processAudioWithGoogleSTT, toast, connectMediaStream, disconnectAnalyser]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
@@ -487,6 +502,7 @@ const Index = () => {
       audioRef.current.pause();
       audioRef.current = null;
       setIsSpeaking(false);
+      disconnectAnalyser();
       // Don't return — fall through to start recording immediately
     }
 
@@ -497,7 +513,7 @@ const Index = () => {
       // Start recording
       startRecording();
     }
-  }, [isListening, isSpeaking, startRecording, stopRecording]);
+  }, [isListening, isSpeaking, startRecording, stopRecording, disconnectAnalyser]);
 
   const handleQuickAction = useCallback((query: string) => {
     handleSendMessage(query);
@@ -511,10 +527,11 @@ const Index = () => {
         audioRef.current.pause();
         audioRef.current = null;
         setIsSpeaking(false);
+        disconnectAnalyser();
       }
       handleSendMessage(inputText);
     }
-  }, [inputText, isProcessing, handleSendMessage]);
+  }, [inputText, isProcessing, handleSendMessage, disconnectAnalyser]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -586,6 +603,8 @@ const Index = () => {
             isSpeaking={isSpeaking}
             onToggle={handleVoiceToggle}
             voiceLang={voiceLang}
+            frequencyBands={frequencyBands}
+            isAudioActive={isAudioActive}
           />
         </div>
 

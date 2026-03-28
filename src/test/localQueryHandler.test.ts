@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { normalizeQuery } from '@/lib/queryNormalizer';
 import {
   getCachedResponse,
@@ -6,8 +6,28 @@ import {
   clearResponseCache,
   getResponseCacheSize,
 } from '@/lib/responseCache';
-import { matchFAQForOnline, DEFAULT_FAQS, ALL_FAQS, OfflineCache, DEFAULT_NAVIGATION } from '@/lib/offlineCache';
+import { matchFAQForOnline, getDefaultFaqs, getAllFaqs, getDefaultNavigation, loadOfflineData, OfflineCache } from '@/lib/offlineCache';
 import { tryLocalResponse, cacheAIResponse } from '@/lib/localQueryHandler';
+
+// Load offline data from JSON before all tests
+beforeAll(async () => {
+  const fs = await import('fs');
+  const path = await import('path');
+  const jsonPath = path.resolve(__dirname, '../../public/offline-data.json');
+  const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
+
+  global.fetch = vi.fn().mockImplementation((url: string) => {
+    if (url === '/offline-data.json') {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(JSON.parse(jsonContent)),
+      } as Response);
+    }
+    return Promise.reject(new Error(`Unmocked fetch: ${url}`));
+  });
+
+  await loadOfflineData();
+});
 
 // ─── queryNormalizer ───────────────────────────────────────────────────────
 
@@ -90,11 +110,15 @@ describe('responseCache', () => {
 // ─── matchFAQForOnline ─────────────────────────────────────────────────────
 
 describe('matchFAQForOnline', () => {
-  const cache: OfflineCache = {
-    faqs: DEFAULT_FAQS,
-    navigation: DEFAULT_NAVIGATION,
-    last_updated: new Date().toISOString(),
-  };
+  let cache: OfflineCache;
+
+  beforeAll(() => {
+    cache = {
+      faqs: getDefaultFaqs(),
+      navigation: getDefaultNavigation(),
+      last_updated: new Date().toISOString(),
+    };
+  });
 
   it('should match "fee structure" with high confidence', () => {
     const match = matchFAQForOnline('What is the fee structure?', cache);
@@ -164,11 +188,15 @@ describe('matchFAQForOnline', () => {
 
   // ─── Problem query tests (reported bugs) ─────────────────────
   describe('with full FAQ pool (DEFAULT + GENERATED)', () => {
-    const fullCache: OfflineCache = {
-      faqs: ALL_FAQS,
-      navigation: DEFAULT_NAVIGATION,
-      last_updated: new Date().toISOString(),
-    };
+    let fullCache: OfflineCache;
+
+    beforeAll(() => {
+      fullCache = {
+        faqs: getAllFaqs(),
+        navigation: getDefaultNavigation(),
+        last_updated: new Date().toISOString(),
+      };
+    });
 
     it('should match "hod of cse" to CSE HOD FAQ, NOT program list', () => {
       const match = matchFAQForOnline('hod of cse', fullCache);
