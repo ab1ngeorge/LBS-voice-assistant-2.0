@@ -6,28 +6,7 @@ import {
   clearResponseCache,
   getResponseCacheSize,
 } from '@/lib/responseCache';
-import { matchFAQForOnline, getDefaultFaqs, getAllFaqs, getDefaultNavigation, loadOfflineData, OfflineCache } from '@/lib/offlineCache';
 import { tryLocalResponse, cacheAIResponse } from '@/lib/localQueryHandler';
-
-// Load offline data from JSON before all tests
-beforeAll(async () => {
-  const fs = await import('fs');
-  const path = await import('path');
-  const jsonPath = path.resolve(__dirname, '../../public/offline-data.json');
-  const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
-
-  global.fetch = vi.fn().mockImplementation((url: string) => {
-    if (url === '/offline-data.json') {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(JSON.parse(jsonContent)),
-      } as Response);
-    }
-    return Promise.reject(new Error(`Unmocked fetch: ${url}`));
-  });
-
-  await loadOfflineData();
-});
 
 // ─── queryNormalizer ───────────────────────────────────────────────────────
 
@@ -107,142 +86,6 @@ describe('responseCache', () => {
   });
 });
 
-// ─── matchFAQForOnline ─────────────────────────────────────────────────────
-
-describe('matchFAQForOnline', () => {
-  let cache: OfflineCache;
-
-  beforeAll(() => {
-    cache = {
-      faqs: getDefaultFaqs(),
-      navigation: getDefaultNavigation(),
-      last_updated: new Date().toISOString(),
-    };
-  });
-
-  it('should match "fee structure" with high confidence', () => {
-    const match = matchFAQForOnline('What is the fee structure?', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer).toContain('fee');
-  });
-
-  it('should match "hostel available"', () => {
-    const match = matchFAQForOnline('Is hostel available?', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer.toLowerCase()).toContain('hostel');
-  });
-
-  it('should match "placement details"', () => {
-    const match = matchFAQForOnline('placement details', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer.toLowerCase()).toContain('placement');
-  });
-
-  it('should match "departments available"', () => {
-    const match = matchFAQForOnline('what departments are available?', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer).toContain('B.Tech');
-  });
-
-  it('should match "canteen menu"', () => {
-    const match = matchFAQForOnline('canteen menu', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer.toLowerCase()).toContain('canteen');
-  });
-
-  it('should NOT match gibberish (below threshold)', () => {
-    const match = matchFAQForOnline('xyzzy foobar quantum blah', cache);
-    expect(match).toBeNull();
-  });
-
-  it('should NOT match very short ambiguous queries', () => {
-    const match = matchFAQForOnline('hi', cache);
-    expect(match).toBeNull();
-  });
-
-  // ─── HOD-specific tests ──────────────────────────────────────
-  it('should match "CSE HOD name" to HOD FAQ, NOT departments', () => {
-    const match = matchFAQForOnline('CSE HOD name', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer).toContain('Manoj Kumar G');
-    expect(match!.answer).not.toContain('5 B.Tech programs');
-  });
-
-  it('should match "who is the hod of cse" to HOD FAQ', () => {
-    const match = matchFAQForOnline('who is the hod of cse', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer).toContain('Manoj Kumar G');
-  });
-
-  it('should match "ECE HOD" to ECE HOD FAQ', () => {
-    const match = matchFAQForOnline('ECE HOD', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer).toContain('Mary Reena');
-  });
-
-  it('should still match "departments available" to departments FAQ', () => {
-    const match = matchFAQForOnline('what departments are available', cache);
-    expect(match).not.toBeNull();
-    expect(match!.answer).toContain('5 B.Tech programs');
-  });
-
-  // ─── Problem query tests (reported bugs) ─────────────────────
-  describe('with full FAQ pool (DEFAULT + GENERATED)', () => {
-    let fullCache: OfflineCache;
-
-    beforeAll(() => {
-      fullCache = {
-        faqs: getAllFaqs(),
-        navigation: getDefaultNavigation(),
-        last_updated: new Date().toISOString(),
-      };
-    });
-
-    it('should match "hod of cse" to CSE HOD FAQ, NOT program list', () => {
-      const match = matchFAQForOnline('hod of cse', fullCache);
-      expect(match).not.toBeNull();
-      expect(match!.answer).toContain('Manoj Kumar G');
-      expect(match!.answer).not.toContain('Programming Lab');
-    });
-
-    it('should NOT match "What is the name of our HOD?" to lab list', () => {
-      const match = matchFAQForOnline('What is the name of our HOD?', fullCache);
-      // Should either match a HOD FAQ or return null (fall through to LLM)
-      if (match) {
-        expect(match.answer).not.toContain('Programming Lab');
-        expect(match.answer).not.toContain('B.Tech programs');
-        // Should contain role-related content
-        const answerLower = match.answer.toLowerCase();
-        const hasRoleContent = ['hod', 'head', 'professor', 'faculty', 'dean'].some(
-          term => answerLower.includes(term)
-        );
-        expect(hasRoleContent).toBe(true);
-      }
-    });
-
-    it('should match "who is the head of department" to faculty FAQ, NOT facilities', () => {
-      const match = matchFAQForOnline('who is the head of department', fullCache);
-      if (match) {
-        expect(match.answer).not.toContain('Programming Lab');
-        expect(match.answer).not.toContain('Auditorium');
-      }
-    });
-
-    it('should still match "lab facilities" to lab FAQ (regression check)', () => {
-      const match = matchFAQForOnline('lab facilities', fullCache);
-      if (match) {
-        expect(match.answer.toLowerCase()).toContain('lab');
-      }
-    });
-
-    it('should still match "fee structure" correctly (regression check)', () => {
-      const match = matchFAQForOnline('fee structure', fullCache);
-      expect(match).not.toBeNull();
-      expect(match!.answer.toLowerCase()).toContain('fee');
-    });
-  });
-});
-
 // ─── tryLocalResponse (end-to-end) ─────────────────────────────────────────
 
 describe('tryLocalResponse', () => {
@@ -255,33 +98,8 @@ describe('tryLocalResponse', () => {
     expect(result.response).toBeTruthy();
   });
 
-  it('should handle FAQ "fee structure" locally', () => {
-    const result = tryLocalResponse('What is the fee structure?', noGPS);
-    expect(result.handled).toBe(true);
-    // Could be 'faq' match or bus/website depending on keyword overlap
-    expect(result.response).toBeTruthy();
-  });
-
-  it('should handle FAQ "hostel undo" (Manglish) locally', () => {
-    const result = tryLocalResponse('hostel undo', noGPS);
-    expect(result.handled).toBe(true);
-    expect(result.response).toBeTruthy();
-  });
-
-  it('should handle FAQ "placement entha" locally', () => {
-    const result = tryLocalResponse('placement entha', noGPS);
-    expect(result.handled).toBe(true);
-    expect(result.response).toBeTruthy();
-  });
-
-  it('should handle FAQ "departments available" locally', () => {
-    const result = tryLocalResponse('what departments are available', noGPS);
-    expect(result.handled).toBe(true);
-    expect(result.response).toBeTruthy();
-  });
-
   it('should handle cached responses', () => {
-    // Use a unique query that won't match any FAQ or intent
+    // Use a unique query that won't match any intent
     const uniqueQuery = 'zyxwvu obscure notkeyword foobarbaz uniquetest99';
     cacheAIResponse(uniqueQuery, 'Cached AI answer');
     const result = tryLocalResponse(uniqueQuery, noGPS);

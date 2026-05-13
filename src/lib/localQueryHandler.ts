@@ -11,7 +11,6 @@ import { normalizeQuery } from './queryNormalizer';
 import { isNavigationIntent, getNavigationResponse, NavigationResult } from './navigationIntent';
 import { isBusIntent, getBusResponse, BusResult } from './busIntent';
 import { isWebsiteIntent, getWebsiteResponse } from './websiteIntent';
-import { matchFAQForOnline } from './offlineCache';
 import { getCachedResponse, setCachedResponse } from './responseCache';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -93,19 +92,7 @@ export function tryLocalResponse(
     };
   }
 
-  // ── Step 5: FAQ Matching (online threshold) ────────────────────────
-  // Try matching against both original and normalized text
-  const faqMatch = matchFAQForOnline(original) || matchFAQForOnline(normalized);
-  if (faqMatch) {
-    console.log(`[LocalHandler] ✅ FAQ matched: "${faqMatch.question}"`);
-    return {
-      handled: true,
-      response: faqMatch.answer,
-      matchType: 'faq',
-    };
-  }
-
-  // ── Step 6: Response Cache ─────────────────────────────────────────
+  // ── Step 5: Response Cache ─────────────────────────────────────────
   const cached = getCachedResponse(normalized);
   if (cached) {
     console.log('[LocalHandler] ✅ Cache hit');

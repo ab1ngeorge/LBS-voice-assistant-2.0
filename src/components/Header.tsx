@@ -1,4 +1,4 @@
-import { Bot, Sparkles, WifiOff, User2, Database, DatabaseZap } from "lucide-react";
+import { Bot, Sparkles, WifiOff, User2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type VoiceGender = 'male' | 'female';
@@ -7,11 +7,9 @@ interface HeaderProps {
   voiceGender?: VoiceGender;
   onVoiceGenderChange?: (gender: VoiceGender) => void;
   isOnline?: boolean;
-  offlineCacheEnabled?: boolean;
-  onOfflineCacheToggle?: (enabled: boolean) => void;
 }
 
-export const Header = ({ voiceGender = 'male', onVoiceGenderChange, isOnline = true, offlineCacheEnabled = true, onOfflineCacheToggle }: HeaderProps) => {
+export const Header = ({ voiceGender = 'male', onVoiceGenderChange, isOnline = true }: HeaderProps) => {
   return (
     <header className="w-full py-4 px-4 md:px-6">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -57,37 +55,6 @@ export const Header = ({ voiceGender = 'male', onVoiceGenderChange, isOnline = t
                   Female
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Offline Cache Toggle */}
-          {onOfflineCacheToggle && (
-            <div className="flex items-center gap-1.5 ml-2">
-              {offlineCacheEnabled ? (
-                <DatabaseZap className="w-3.5 h-3.5 text-muted-foreground" />
-              ) : (
-                <Database className="w-3.5 h-3.5 text-muted-foreground" />
-              )}
-              <button
-                onClick={() => onOfflineCacheToggle(!offlineCacheEnabled)}
-                className={cn(
-                  "relative w-9 h-5 rounded-full transition-colors duration-200",
-                  offlineCacheEnabled
-                    ? "bg-primary"
-                    : "bg-muted-foreground/30"
-                )}
-                title={offlineCacheEnabled ? "Offline cache is ON — click to disable" : "Offline cache is OFF — click to enable"}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200",
-                    offlineCacheEnabled ? "translate-x-4" : "translate-x-0"
-                  )}
-                />
-              </button>
-              <span className="text-[10px] text-muted-foreground hidden sm:inline">
-                Cache
-              </span>
             </div>
           )}
         </div>

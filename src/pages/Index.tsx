@@ -17,7 +17,6 @@ import { stripEmojisForTTS } from "@/lib/textSanitizer";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { createEmptyMemory, rewriteQuery, updateMemory } from "@/lib/conversationMemory";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { initializeCacheAsync, handleOfflineQuery, fetchAndMergeDynamicFAQs } from "@/lib/offlineCache";
 import { tryLocalResponse, cacheAIResponse } from "@/lib/localQueryHandler";
 import { playStreamingAudio } from "@/lib/streamingAudio";
 import { useAudioAnalyser } from "@/hooks/useAudioAnalyser";
@@ -51,39 +50,11 @@ const Index = () => {
   const { getLocation } = useGeolocation();
   const { isOnline } = useNetworkStatus();
 
-  // Offline cache toggle — persisted in localStorage
-  const [offlineCacheEnabled, setOfflineCacheEnabled] = useState<boolean>(() => {
-    const stored = localStorage.getItem('lbs_offline_cache_enabled');
-    return stored !== null ? stored === 'true' : true; // default: enabled
-  });
-
-  const handleOfflineCacheToggle = useCallback((enabled: boolean) => {
-    setOfflineCacheEnabled(enabled);
-    localStorage.setItem('lbs_offline_cache_enabled', String(enabled));
-    if (!enabled) {
-      // Clear the cache from localStorage when disabled
-      localStorage.removeItem('lbs_offline_cache');
-      console.log('[Offline] Cache disabled and cleared');
-    }
-  }, []);
-
   // Audio analyser for real-time visualizer
   const { frequencyBands, isActive: isAudioActive, connectAudioElement, connectMediaStream, disconnect: disconnectAnalyser } = useAudioAnalyser();
 
   // Conversational memory — persists across renders, resets on page reload
   const memoryRef = useRef(createEmptyMemory());
-
-  // Initialize offline cache on mount + fetch dynamic FAQs in background
-  useEffect(() => {
-    if (!offlineCacheEnabled) {
-      console.log('[Offline] Cache feature is disabled — skipping init');
-      return;
-    }
-    initializeCacheAsync().then((cache) => {
-      // Non-blocking: fetch auto-promoted FAQs from Supabase and merge
-      fetchAndMergeDynamicFAQs(cache).catch(() => {});
-    });
-  }, [offlineCacheEnabled]);
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -283,36 +254,17 @@ const Index = () => {
         return;
       }
 
-      // ── OFFLINE FALLBACK ────────────────────────────────────────────
-      // If no internet and local handler didn't match, use offline cache (if enabled)
+      // ── OFFLINE CHECK ────────────────────────────────────────────────
       if (!isOnline) {
-        if (offlineCacheEnabled) {
-          console.log('[Pipeline] Offline — using cached data');
-          const offlineResult = handleOfflineQuery(resolvedText);
-
-          const botMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: offlineResult.answer,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, botMessage]);
-          setIsProcessing(false);
-
-          updateMemory(text, memoryRef.current);
-          return;
-        } else {
-          console.log('[Pipeline] Offline — cache disabled, showing fallback message');
-          const botMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: '📴 You are currently offline and offline cache is disabled. Please connect to the internet to use LBS Bot. 🙏',
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, botMessage]);
-          setIsProcessing(false);
-          return;
-        }
+        const botMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: 'You are currently offline. Please connect to the internet to use LBS Bot.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, botMessage]);
+        setIsProcessing(false);
+        return;
       }
 
       // ── LLM API CALL (LAST RESORT) ─────────────────────────────────
@@ -398,19 +350,10 @@ const Index = () => {
     } catch (error) {
       console.error("Chat error:", error);
 
-      if (!isOnline && offlineCacheEnabled) {
-        const offlineResult = handleOfflineQuery(text);
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: offlineResult.answer,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, botMessage]);
-      } else if (!isOnline) {
+      if (!isOnline) {
         toast({
           title: "You're Offline",
-          description: "No internet and offline cache is disabled.",
+          description: "Please connect to the internet to use LBS Bot.",
           variant: "destructive",
         });
       } else {
@@ -422,7 +365,7 @@ const Index = () => {
       }
       setIsProcessing(false);
     }
-  }, [messages, toast, playTTS, getLocation, isOnline, offlineCacheEnabled, disconnectAnalyser]);
+  }, [messages, toast, playTTS, getLocation, isOnline, disconnectAnalyser]);
 
   // Process recorded audio with Google STT, fallback to browser STT
   const processAudioWithGoogleSTT = useCallback(async (audioBlob: Blob) => {
@@ -586,7 +529,7 @@ const Index = () => {
       </div>
 
       {/* Header */}
-      <Header voiceGender={voiceGender} onVoiceGenderChange={setVoiceGender} isOnline={isOnline} offlineCacheEnabled={offlineCacheEnabled} onOfflineCacheToggle={handleOfflineCacheToggle} />
+      <Header voiceGender={voiceGender} onVoiceGenderChange={setVoiceGender} isOnline={isOnline} />
 
       {/* Stats Bar */}
       <StatsBar />
