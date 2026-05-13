@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { lbsBotApi, ChatMessage } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { detectLanguage } from "@/lib/languageDetection";
+import { stripEmojisForTTS } from "@/lib/textSanitizer";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { createEmptyMemory, rewriteQuery, updateMemory } from "@/lib/conversationMemory";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -161,16 +162,19 @@ const Index = () => {
 
   // Smart TTS: Sarvam AI streaming for Malayalam/Manglish (premium), Web Speech API for English (free)
   const playTTS = useCallback(async (text: string) => {
+    // Strip emojis so they aren't spoken aloud
+    const cleanText = stripEmojisForTTS(text);
+    if (!cleanText) return; // nothing left to speak
     setIsSpeaking(true);
     try {
-      const lang = detectLanguage(text);
+      const lang = detectLanguage(cleanText);
       const useSarvam = lang === 'malayalam' || lang === 'manglish';
 
       if (useSarvam) {
         try {
           // Premium Sarvam AI TTS — streaming playback
           const speaker = VOICE_GENDER_SPEAKER[voiceGender];
-          const response = await lbsBotApi.textToSpeechStream(text, speaker);
+          const response = await lbsBotApi.textToSpeechStream(cleanText, speaker);
 
           const handle = playStreamingAudio(response);
           audioRef.current = handle.audio;
@@ -188,7 +192,7 @@ const Index = () => {
               // Streaming playback failed — fall back to Web Speech
               console.warn('Streaming audio playback failed, falling back to Web Speech');
               disconnectAnalyser();
-              playWithWebSpeech(text);
+              playWithWebSpeech(cleanText);
             });
 
           return;
@@ -199,7 +203,7 @@ const Index = () => {
       }
 
       // Free Web Speech API for English or as fallback
-      playWithWebSpeech(text);
+      playWithWebSpeech(cleanText);
     } catch (error) {
       console.error('TTS error:', error);
       setIsSpeaking(false);
@@ -212,7 +216,7 @@ const Index = () => {
       setIsSpeaking(false);
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(text.slice(0, 500));
+    const utterance = new SpeechSynthesisUtterance(stripEmojisForTTS(text).slice(0, 500));
     utterance.lang = 'en-IN';
     utterance.rate = 1.0;
     utterance.onend = () => setIsSpeaking(false);

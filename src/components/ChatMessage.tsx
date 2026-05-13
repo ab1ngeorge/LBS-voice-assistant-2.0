@@ -4,6 +4,7 @@ import { Bot, User, Volume2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { lbsBotApi } from "@/lib/api";
 import { playStreamingAudio } from "@/lib/streamingAudio";
+import { stripEmojisForTTS } from "@/lib/textSanitizer";
 import { useToast } from "@/hooks/use-toast";
 
 export interface Message {
@@ -29,7 +30,9 @@ export const ChatMessage = ({ message, speaker }: ChatMessageProps) => {
 
     setIsSpeaking(true);
     try {
-      const response = await lbsBotApi.textToSpeechStream(message.content, speaker);
+      const cleanText = stripEmojisForTTS(message.content);
+      if (!cleanText) { setIsSpeaking(false); return; }
+      const response = await lbsBotApi.textToSpeechStream(cleanText, speaker);
       const handle = playStreamingAudio(response);
 
       handle.done
